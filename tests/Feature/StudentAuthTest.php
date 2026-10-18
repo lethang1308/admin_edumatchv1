@@ -5,73 +5,27 @@ namespace Tests\Feature;
 use App\Models\StudentProfile;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
-use PDO;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
+use Tests\Concerns\SeedsRegistrationOtp;
+use Tests\IsolatedMysqlTestCase;
 
-class StudentAuthTest extends TestCase
+class StudentAuthTest extends IsolatedMysqlTestCase
 {
-    private static ?string $databaseName = null;
-
-    private static ?PDO $adminPdo = null;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $connection = config('database.connections.mysql');
-        $connection['url'] = null;
-        $connection['database'] = null;
-        config(['database.connections.auth_test_admin' => $connection]);
-        if (self::$databaseName === null) {
-            self::$adminPdo = DB::connection('auth_test_admin')->getPdo();
-            self::$databaseName = 'edumatch_auth_test_'.bin2hex(random_bytes(8));
-            self::$adminPdo->exec('CREATE DATABASE `'.self::$databaseName.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-        }
-        $connection['database'] = self::$databaseName;
-        config(['database.connections.auth_testing' => $connection, 'database.default' => 'auth_testing', 'cache.default' => 'array']);
-        DB::setDefaultConnection('auth_testing');
-        if (! DB::getSchemaBuilder()->hasTable('student_profiles')) {
-            $this->assertSame(0, Artisan::call('migrate', ['--database' => 'auth_testing', '--force' => true]), Artisan::output());
-        }
-        DB::beginTransaction();
-    }
-
-    protected function tearDown(): void
-    {
-        try {
-            if ($this->app) {
-                while (DB::connection('auth_testing')->transactionLevel() > 0) {
-                    DB::connection('auth_testing')->rollBack();
-                }
-                DB::purge('auth_testing');
-                DB::purge('auth_test_admin');
-            }
-        } finally {
-            parent::tearDown();
-        }
-    }
-
-    public static function tearDownAfterClass(): void
-    {
-        if (self::$databaseName !== null && preg_match('/^edumatch_auth_test_[a-f0-9]{16}$/D', self::$databaseName)) {
-            self::$adminPdo?->exec('DROP DATABASE `'.self::$databaseName.'`');
-        }
-        self::$databaseName = null;
-        self::$adminPdo = null;
-        parent::tearDownAfterClass();
-    }
+    use SeedsRegistrationOtp;
 
     private function payload(array $overrides = []): array
     {
-        return array_replace([
+        $data = array_replace([
             'name' => 'Nguyễn Văn A', 'email' => 'edumatch.student.test@gmail.com',
             'phone' => '0981234567', 'date_of_birth' => '2002-05-15',
             'password' => 'Admin@123', 'password_confirmation' => 'Admin@123', 'role' => 'student',
+            'otp' => '123456',
         ], $overrides);
+        $this->seedRegistrationOtp($data['email']);
+
+        return $data;
     }
 
     private function requestApi(string $method, string $path, array $data = [], ?string $token = null): TestResponse
@@ -87,6 +41,7 @@ class StudentAuthTest extends TestCase
         $response = $this->requestApi('POST', '/api/auth/register', $this->payload(['email' => ' EDUMATCH.STUDENT.TEST@GMAIL.COM ', 'phone' => '098 123.4567', 'status' => 'blocked', 'balance' => 999]));
         $response->assertCreated()->assertJsonPath('user.role', 'student')->assertJsonPath('user.status', 'active')
             ->assertJsonPath('user.phone', '+84981234567')->assertJsonPath('user.student_profile.full_name', 'Nguyễn Văn A')
+            ->assertJsonPath('user.student_profile.date_of_birth', '2002-05-15')
             ->assertJsonPath('token_type', 'Bearer')->assertJsonMissingPath('user.password');
         $this->assertSame($response->json('token'), $response->json('access_token'));
         $user = User::firstOrFail();
@@ -121,7 +76,7 @@ class StudentAuthTest extends TestCase
             ['phone', '0123456789'], ['phone', '09812345678'],
             ['date_of_birth', now()->addDay()->toDateString()], ['date_of_birth', '2002-02-31'],
             ['password', '123456'], ['password_confirmation', 'not-matching'],
-            ['role', 'super_admin'], ['role', 'teacher'], ['role', 'center'],
+            ['role', 'super_admin'], ['role', 'admin'], ['role', 'content'],
         ];
         foreach ($cases as [$field, $value]) {
             $this->requestApi('POST', '/api/auth/register', $this->payload([$field => $value]))

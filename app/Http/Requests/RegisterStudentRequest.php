@@ -42,6 +42,7 @@ class RegisterStudentRequest extends FormRequest
             'date_of_birth' => ['bail', 'required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'password' => ['bail', 'required', 'string', 'min:8', 'max:128', 'confirmed'],
             'password_confirmation' => ['required', 'string'],
+            'otp' => ['bail', 'required', 'string', 'regex:/^[0-9]{6}$/D'],
             'role' => ['nullable', Rule::in(['student'])],
         ];
     }
@@ -66,6 +67,8 @@ class RegisterStudentRequest extends FormRequest
             'password.max' => 'Mật khẩu tối đa 128 ký tự.',
             'password.confirmed' => 'Mật khẩu xác nhận chưa khớp.',
             'password_confirmation.required' => 'Vui lòng xác nhận mật khẩu.',
+            'otp.required' => 'Vui lòng nhập mã OTP đã gửi đến email đăng ký.',
+            'otp.regex' => 'Mã OTP phải gồm đúng 6 chữ số.',
             'role.in' => 'Chức năng này hiện hỗ trợ đăng ký tài khoản học viên.',
         ];
     }

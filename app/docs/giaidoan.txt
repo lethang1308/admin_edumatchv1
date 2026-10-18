@@ -1,0 +1,442 @@
+BẢN ĐẶC TẢ CHI TIẾT TỪNG CHỨC NĂNG THEO 6 GIAI ĐOẠN - DỰ ÁN EDUMATCH
+
+Tài liệu này chi tiết hóa từng chức năng nhỏ (Features), quy trình xử lý dữ liệu (Data flow), danh sách API Endpoints kèm Request/Response, các thành phần Frontend (React) và Backend (Laravel + Blade) cho từng giai đoạn trong lộ trình phát triển.
+
+MỤC LỤC
+Giai đoạn 1: Nền tảng Xác thực & Hồ sơ cơ bản
+Giai đoạn 2: Danh mục CMS & Trung tâm Xác minh
+Giai đoạn 3: Khóa học, Tìm kiếm & Kiểm duyệt bài
+Giai đoạn 4: Quản lý Lead tư vấn & Đánh giá chất lượng
+Giai đoạn 5: Tương tác, Chat In-app & Bảng tin cộng đồng
+Giai đoạn 6: Dashboard Admin, Báo cáo & Giám sát an toàn
+GIAI ĐOẠN 1: NỀN TẢNG XÁC THỰC & HỒ SƠ CƠ BẢN
+1. Danh sách chức năng chi tiết
+Chức năng 1.1: Đăng ký tài khoản theo Role (Học viên, Giáo viên, Trung tâm)
+Mô tả: Người dùng chọn 1 trong 3 vai trò trên giao diện để đăng ký tài khoản.
+Biểu mẫu đăng ký cho từng Role:
+Role Học viên (Student):
+Họ và tên: Bắt buộc, 2 - 150 ký tự (users.name và student_profiles.full_name).
+Email: Bắt buộc, định dạng email chuẩn, không trùng lặp (users.email).
+Số điện thoại (Tài khoản đăng nhập): Bắt buộc, chuẩn Việt Nam 10 số hoặc +84, không trùng lặp (users.phone).
+Ngày sinh: Bắt buộc, không được lớn hơn ngày hiện tại (student_profiles.date_of_birth).
+Mật khẩu: Bắt buộc, tối thiểu 8 ký tự (users.password đã mã hóa).
+Nhập lại mật khẩu: Bắt buộc, phải trùng khớp với mật khẩu.
+Role Giáo viên (Teacher):
+Họ và tên, Email, Số điện thoại, Ngày sinh, Mật khẩu, Nhập lại mật khẩu.
+Tiêu đề nghề nghiệp / Bằng cấp, chứng chỉ: Text tối đa 500 ký tự.
+Số năm / Kinh nghiệm giảng dạy: Text tối đa 500 ký tự.
+Thông tin tổng quan (Bio): Textarea tối đa 500 ký tự.
+Tùy chọn công khai SĐT: Radio "Có" / "Không" (teacher_profiles.show_phone).
+Modal điều khoản đối tác giáo viên: Phải tích đồng ý điều khoản trước khi tạo tài khoản.
+Role Trung tâm (Center):
+Tên trung tâm đào tạo: Bắt buộc, 2 - 200 ký tự (users.name và centers.name).
+Số điện thoại (Hotline / Đăng nhập): Bắt buộc, không trùng lặp (users.phone và centers.hotline).
+Năm thành lập: Bắt buộc, 4 chữ số (centers.founded_year).
+Thông tin tổng quan về trung tâm: Textarea tối đa 500 ký tự (centers.bio).
+Mật khẩu & Nhập lại mật khẩu: Bắt buộc, tối thiểu 8 ký tự.
+Xử lý Backend (AuthController@register):
+Mở DB::transaction.
+Validate dữ liệu đầu vào nghiêm ngặt với FormRequest.
+Lưu vào bảng users (role = request->role, status = 'active').
+Lưu tương ứng vào student_profiles, teacher_profiles, hoặc centers.
+Gán vai trò Spatie tương ứng: $user->assignRole($role).
+Cấp Bearer token Sanctum: $user->createToken('auth_token')->plainTextToken.
+Trả về HTTP 201 kèm token và thông tin User + Profile.
+Chức năng 1.2: Đăng nhập đa kênh (SĐT hoặc Email)
+Mô tả: Người dùng có thể nhập Số điện thoại hoặc Email vào duy nhất 1 ô đăng nhập trên giao diện.
+Xử lý Backend (AuthController@login):
+Nhận input identifier (hoặc email/phone) và password.
+Kiểm tra xem identifier có chứa ký tự @ không:
+Nếu có @: Tìm user theo email = strtolower($identifier).
+Nếu không có @: Chuẩn hóa số điện thoại (bỏ dấu cách, dấu gạch ngang, đổi +84 về 0) rồi tìm theo phone.
+Nếu không tìm thấy user hoặc Hash::check($password, $user->password) trả về false:
+Trả về HTTP 401 với thông báo: "Thông tin đăng nhập hoặc mật khẩu không chính xác."
+Kiểm tra trạng thái tài khoản:
+Nếu user->status === 'blocked': Trả về HTTP 403 với thông báo: "Tài khoản của bạn đã bị khóa. Lý do: [blocked_reason]".
+Cập nhật thời điểm đăng nhập: $user->update(['last_login_at' => now()]).
+Sinh token Sanctum mới, trả về HTTP 200.
+Chức năng 1.3: Lấy thông tin tài khoản hiện tại (Get Me Profile)
+Mô tả: Khi người dùng mở app hoặc F5 trang web, FE gửi Bearer token để lấy lại toàn bộ thông tin đăng nhập và quyền hạn.
+Endpoint: GET /api/auth/me (Middleware auth:sanctum).
+Xử lý Backend (AuthController@me):
+Tải kèm Profile tương ứng theo vai trò:
+Role student: $user->load('studentProfile')
+Role teacher: $user->load('teacherProfile')
+Role center: $user->load('center')
+Đính kèm mảng roles: $user->getRoleNames() và permissions: $user->getAllPermissions()->pluck('name').
+Chức năng 1.4: Đăng xuất (Logout)
+Mô tả: Thu hồi phiên làm việc hiện tại của người dùng.
+Endpoint: POST /api/auth/logout (Middleware auth:sanctum).
+Xử lý Backend: Thu hồi token hiện tại $request->user()->currentAccessToken()->delete().
+Xử lý Frontend: Xóa access_token và user_info khỏi localStorage, reset state AuthContext.
+Chức năng 1.5: Đổi mật khẩu & Quên mật khẩu cơ bản
+Đổi mật khẩu (POST /api/auth/change-password):
+Nhập: Mật khẩu cũ, Mật khẩu mới (>= 8 ký tự), Xác nhận mật khẩu mới.
+Backend kiểm tra mật khẩu cũ trước khi Hash mật khẩu mới.
+Quên mật khẩu (POST /api/auth/forgot-password):
+Nhập Email hoặc Số điện thoại.
+Tạo mã xác thực ngẫu nhiên 6 số, lưu vào bảng auth_verification_tokens (thời hạn 10 phút, purpose = 'password_reset').
+Gửi mã qua Email/SMS (hoặc log/trả về trong môi trường test local).
+Đặt lại mật khẩu (POST /api/auth/reset-password):
+Nhập mã token + Mật khẩu mới để cập nhật.
+2. Thiết kế API Endpoints (Giai đoạn 1)
+POST   /api/auth/register          -> Đăng ký tài khoản (Public)
+POST   /api/auth/login             -> Đăng nhập SĐT/Email (Public)
+POST   /api/auth/logout            -> Đăng xuất (Auth Sanctum)
+POST   /api/auth/refresh           -> Cấp lại Token (Auth Sanctum)
+GET    /api/auth/me                -> Lấy thông tin tài khoản đang đăng nhập (Auth Sanctum)
+POST   /api/auth/change-password   -> Đổi mật khẩu (Auth Sanctum)
+POST   /api/auth/forgot-password   -> Gửi yêu cầu quên mật khẩu (Public)
+POST   /api/auth/reset-password    -> Đặt lại mật khẩu với token OTP (Public)
+Chi tiết Payload Đăng ký Học viên (POST /api/auth/register):
+json
+{
+  "role": "student",
+  "name": "Nguyễn Văn A",
+  "email": "nguyenvana@gmail.com",
+  "phone": "0981234567",
+  "date_of_birth": "2002-05-15",
+  "password": "Password@123",
+  "password_confirmation": "Password@123"
+}
+
+Response thành công (201 Created):
+
+json
+{
+  "message": "Đăng ký tài khoản học viên thành công",
+  "access_token": "1|sanctum_token_string_here...",
+  "token": "1|sanctum_token_string_here...",
+  "token_type": "Bearer",
+  "user": {
+    "id": 12,
+    "role": "student",
+    "name": "Nguyễn Văn A",
+    "email": "nguyenvana@gmail.com",
+    "phone": "0981234567",
+    "status": "active",
+    "created_at": "2026-10-18T20:30:00Z",
+    "student_profile": {
+      "id": 5,
+      "user_id": 12,
+      "full_name": "Nguyễn Văn A",
+      "date_of_birth": "2002-05-15"
+    }
+  }
+}
+Chi tiết Payload Đăng nhập (POST /api/auth/login):
+json
+{
+  "email": "0981234567",
+  "password": "Password@123"
+}
+
+(FE truyền trường email hoặc phone, BE tự động nhận diện Email hay SĐT)
+
+GIAI ĐOẠN 2: DANH MỤC CMS & TRUNG TÂM XÁC MINH CHUYÊN MÔN / PHÁP LÝ
+1. Danh sách chức năng chi tiết
+Chức năng 2.1: Quản trị Danh mục Môn học, Cấp lớp & Banner (Super Admin Blade)
+Quản lý Môn học (subjects):
+Thêm, sửa, xóa môn học: Tên môn (Toán, Tiếng Anh, Vật Lý...), slug, icon svg/ảnh, trạng thái hiển thị (is_active).
+Quản lý Cấp lớp (education_levels):
+Danh mục: Lớp 1 - 12, Luyện thi Đại học, Người đi làm, Mầm non. Cột code, name.
+Quản lý Khu vực hành chính (administrative_areas):
+Tra cứu Tỉnh/Thành, Quận/Huyện, Phường/Xã cho hệ thống lọc địa điểm.
+Quản lý Banner quảng cáo (banners):
+Upload ảnh banner, nhập tiêu đề, đường link liên kết, thứ tự hiển thị, bật/tắt hiển thị trên trang chủ.
+Chức năng 2.2: API Public Master Data cho Frontend Client
+GET /api/subjects: Danh sách môn học có bài đăng hoặc đang hoạt động.
+GET /api/education-levels: Danh sách cấp lớp học.
+GET /api/administrative-areas/provinces: Lấy danh sách 63 tỉnh thành.
+GET /api/administrative-areas/districts/{provinceId}: Lấy quận huyện theo tỉnh.
+GET /api/banners: Lấy danh sách banner hiển thị trang chủ.
+Chức năng 2.3: Giáo viên nộp hồ sơ bằng cấp / chứng chỉ chuyên môn
+Giao diện Teacher Dashboard:
+Form nộp tài liệu: Chọn loại chứng chỉ (Bằng cử nhân/thạc sĩ sư phạm, Chứng chỉ IELTS, TOEIC, HSK, Chứng chỉ tin học...).
+Upload tài liệu: File ảnh (PNG, JPG) hoặc PDF bằng cấp, chứng chỉ, mặt trước/mặt sau CCCD.
+Nhập tên chứng chỉ, đơn vị cấp bằng, năm cấp.
+Backend:
+Lưu file an toàn vào storage/app/verification_documents.
+Tạo bản ghi trong verification_requests (teacher_user_id = auth->id, status = 'pending', submitted_at = now()).
+Lưu từng file vào verification_documents (request_id, document_type, file_path, file_name).
+Cập nhật teacher_profiles.verification_status = 'pending'.
+Chức năng 2.4: Trung tâm nộp hồ sơ pháp nhân & Giấy phép giáo dục
+Giao diện Center Dashboard:
+Form nộp pháp lý: Upload Giấy chứng nhận đăng ký doanh nghiệp (GPKD), Giấy phép hoạt động giáo dục / đào tạo do Sở GD&ĐT cấp, CCCD của người đại diện pháp luật.
+Backend:
+Tạo bản ghi trong verification_requests (center_id = user->center->id, status = 'pending').
+Cập nhật centers.verification_status = 'pending'.
+Chức năng 2.5: Trung tâm Kiểm duyệt Xác minh (Super Admin Blade)
+Menu Verification Center:
+Bộ lọc: Đang chờ duyệt (pending), Đã duyệt (verified), Đã từ chối (rejected).
+Giao diện xem chi tiết hồ sơ:
+Hiển thị đầy đủ thông tin cá nhân/tổ chức, hotline, email.
+Trình xem trước file trực quan (Preview ảnh bằng cấp, chứng chỉ, GPKD trực tiếp không cần tải về máy).
+Nút Phê duyệt (Verify):
+Cập nhật verification_requests.status = 'approved', reviewed_by = admin->id, reviewed_at = now().
+Cập nhật teacher_profiles hoặc centers: verification_status = 'verified', verified_at = now().
+Gửi thông báo đến tài khoản.
+Nút Từ chối (Reject):
+Bắt buộc nhập lý do từ chối (Ví dụ: "Ảnh chứng chỉ bị mờ góc", "Bằng cấp không khớp họ tên").
+Cập nhật status = 'rejected', lưu rejection_reason.
+Cập nhật hồ sơ về rejected để người dạy biết và nộp lại.
+Chức năng 2.6: Hiển thị Huy hiệu Verified trên Frontend
+Người dạy sau khi được duyệt sẽ có huy hiệu tích xanh "Đã xác minh chuyên môn" (với Giáo viên) hoặc "Đã xác thực pháp lý" (với Trung tâm).
+Hiển thị trên thẻ tìm kiếm, trang chi tiết khóa học và trang cá nhân.
+GIAI ĐOẠN 3: KHÓA HỌC, TÌM KIẾM & KIỂM DUYỆT BÀI
+1. Danh sách chức năng chi tiết
+Chức năng 3.1: Giáo viên & Trung tâm soạn bài đăng khóa học
+Biểu mẫu đăng bài:
+Thông tin chung: Tiêu đề khóa học, Môn học chính (subject_id), Cấp lớp áp dụng (chọn nhiều cấp post_levels), Hình thức dạy (teaching_mode: Trực tuyến / Dạy tại nhà học sinh / Dạy tại cơ sở trung tâm).
+Nội dung chi tiết: Mô tả nội dung khóa học, Mục tiêu kiến thức đầu ra, Yêu cầu đối với học viên.
+Học phí: Số tiền (price_amount), đơn vị tính (price_period: theo buổi / theo tháng / trọn khóa).
+Thiết lập ca học (course_batches & course_schedules):
+Tên đợt/lớp tuyển sinh (Ví dụ: "Lớp ôn thi THPT Tối 2-4-6").
+Số lượng học viên tối đa (nếu có).
+Lịch học trong tuần: Chọn thứ (Thứ 2 đến Chủ nhật), Giờ bắt đầu (start_time), Giờ kết thúc (end_time), Hình thức học của ca.
+Thư viện ảnh khóa học (post_images): Upload ảnh bìa khóa học và các ảnh hoạt động lớp học liên quan.
+Chức năng 3.2: Quy trình Kiểm duyệt Trạng thái bài đăng (Post Life-cycle)
+draft: Giáo viên lưu nháp để tiếp tục hoàn thiện sau.
+pending: Giáo viên bấm "Gửi duyệt bài" để chuyển tới hàng đợi kiểm duyệt của Super Admin.
+published: Bài viết đã qua kiểm duyệt, hiển thị công khai trên sàn EduMatch.
+rejected: Bài viết bị Admin từ chối do vi phạm quy chuẩn nội dung; Giáo viên nhận thông báo kèm lý do cụ thể để sửa và nộp lại.
+hidden: Giáo viên hoặc Admin tạm ẩn bài khi lớp học đã đủ sĩ số.
+Chức năng 3.3: Module Kiểm duyệt Bài đăng trên Super Admin (Blade)
+Menu Post Moderation:
+Bảng danh sách bài chờ duyệt: Hiển thị tiêu đề, người đăng, ngày gửi, học phí, hình thức.
+Nút Xem trước (Preview): Bật modal hiển thị bài viết theo đúng giao diện trực quan ngoài FE.
+Thao tác xử lý:
+Phê duyệt: Đổi trạng thái sang published, ghi log kiểm duyệt vào post_moderation_logs.
+Từ chối: Bắt buộc nhập lý do từ chối (Ví dụ: "Giá học phí không hợp lệ", "Mô tả bài viết chứa thông tin rác").
+Hạ bài vi phạm: Ẩn bài viết đang hiển thị khi phát hiện học sinh khiếu nại.
+Chức năng 3.4: Bộ lọc Tìm kiếm Khóa học đa tiêu chí (Học viên)
+Thanh tìm kiếm & Bộ lọc nâng cao trên React FE:
+Lọc theo Môn học: Chọn Toán, Tiếng Anh, Lý, Hóa...
+Lọc theo Cấp độ: Cấp 1, Cấp 2, Cấp 3, Đại học, Luyện thi.
+Lọc theo Hình thức: Học Online, Gia sư tại nhà, Lớp học trung tâm.
+Lọc theo Địa điểm: Chọn Tỉnh/Thành phố và Quận/Huyện.
+Lọc theo Khoảng học phí: Thanh trượt chọn từ mức giá Min đến mức giá Max.
+Lọc theo Uy tín: Chỉ hiển thị giáo viên/trung tâm đã xác thực (Verified Only).
+Sắp xếp (Sort): Mới nhất, Đánh giá sao cao nhất, Học phí tăng dần, Học phí giảm dần.
+Backend API (GET /api/posts):
+Xây dựng Query Builder linh hoạt với Index tối ưu.
+Trả về danh sách phân trang (Pagination 12 bài/trang) kèm thông tin cơ bản của giáo viên/trung tâm.
+Chức năng 3.5: Trang Chi tiết Khóa học & Trang Hồ sơ Người dạy
+Trang Chi tiết Khóa học (/posts/:slug):
+Thông tin khóa học, lộ trình học tập, lịch học từng ca.
+Khung thông tin tóm tắt Người dạy (Avatar, Họ tên, Huy hiệu xác minh, Số năm kinh nghiệm, Đánh giá trung bình).
+Nút kêu gọi hành động (CTA): "Gửi yêu cầu tư vấn" và "Nhắn tin ngay".
+Trang Hồ sơ công khai (/teacher/:id hoặc /center/:slug):
+Giới thiệu chi tiết, bằng cấp chứng chỉ đã được xác minh.
+Danh sách tất cả các khóa học khác đang tuyển sinh của người dạy này.
+Danh sách các đánh giá của học viên cũ đã học xong.
+GIAI ĐOẠN 4: QUẢN LÝ LEAD TƯ VẤN & ĐÁNH GIÁ CHẤT LƯỢNG
+1. Danh sách chức năng chi tiết
+Chức năng 4.1: Học sinh gửi Form yêu cầu tư vấn (Lead Creation)
+Mô tả: Khi tìm thấy khóa học ưng ý, học sinh điền form tư vấn ngay trên trang khóa học.
+Biểu mẫu yêu cầu:
+Họ và tên người học / phụ huynh (Tự động điền theo tài khoản học sinh đang đăng nhập).
+Số điện thoại liên hệ (Tự động điền SĐT đăng nhập).
+Email nhận phản hồi.
+Chọn ca học mong muốn (Chọn từ danh sách course_batches của bài đăng).
+Lời nhắn / Mục tiêu học tập cụ thể (Ví dụ: "Em muốn ôn thi lấy chứng chỉ IELTS 6.5 trong 3 tháng tới").
+Backend API (POST /api/consultation-requests):
+Lưu vào bảng consultation_requests với trạng thái ban đầu là new.
+Ghi nhận request_status_logs (trạng thái new, người tạo là học sinh).
+Tạo thông báo tức thì (notifications) cho Giáo viên hoặc Trung tâm sở hữu bài đăng.
+Chức năng 4.2: Hệ thống CRM Quản lý Lead (Giáo viên & Trung tâm)
+Giao diện Quản lý Học viên tiềm năng:
+Chế độ xem: Dạng bảng lọc hoặc dạng bảng Kéo-thả (Kanban Board) 4 cột trạng thái:
+Mới tiếp nhận (new): Lead mới gửi đến chưa liên hệ.
+Đã liên hệ (contacted): Đã gọi điện hoặc gửi tin nhắn trao đổi ban đầu.
+Đang tư vấn (consulting): Đang thảo luận chi tiết về lịch học hoặc kiểm tra trình độ đầu vào.
+Hoàn tất / Đã chốt (converted): Học viên đồng ý nhập học thành công.
+Thất bại / Hủy (failed): Học sinh không có nhu cầu nữa hoặc thời gian không phù hợp.
+Thao tác:
+Bấm vào lead để xem chi tiết: Thông tin liên lạc, bài đăng quan tâm, ca học mong muốn.
+Chuyển trạng thái lead: Kèm theo ô Ghi chú nội bộ (Internal Notes) (Ví dụ: "Hẹn phụ huynh tối mai 8h gọi lại chốt lịch").
+Toàn bộ lịch sử đổi trạng thái đều được lưu vết vào request_status_logs.
+Chức năng 4.3: Học sinh theo dõi tiến trình tư vấn
+Giao diện "Lịch sử yêu cầu tư vấn" của Học viên:
+Hiển thị danh sách các khóa học đã gửi yêu cầu.
+Tiến trình trạng thái trực quan: Đã gửi ➔ Người dạy đã nhận ➔ Đang tư vấn ➔ Thành công.
+Nút "Hủy yêu cầu": Cho phép học sinh hủy khi lead đang ở trạng thái new (khi người dạy chưa liên hệ).
+Chức năng 4.4: Đánh giá & Chấm điểm chất lượng sau tư vấn (Review System)
+Cơ chế chống Đánh giá Ảo:
+Chỉ cho phép đánh giá khi yêu cầu tư vấn có trạng thái là converted (Đã chốt học thành công) và người đánh giá chính là student_user_id tạo lead đó.
+Mỗi yêu cầu tư vấn chỉ được đánh giá duy nhất 1 lần.
+Biểu mẫu đánh giá:
+Chấm điểm số: 1 đến 5 sao (Đánh giá theo mức độ hài lòng về chất lượng tư vấn, chuyên môn).
+Nội dung nhận xét: Tối đa 1000 ký tự.
+Backend API (POST /api/reviews):
+Lưu vào bảng reviews liên kết với request_id, post_id, student_user_id, teacher_user_id/center_id.
+Tự động kích hoạt hàm tính lại điểm trung bình: 
+rating_avg
+=
+∑
+rating
+review_count
+rating_avg=
+review_count
+∑rating
+	​
+
+Cập nhật tức thì vào cột rating_avg và review_count trên bảng teacher_profiles hoặc centers.
+Chức năng 4.5: Kiểm duyệt Đánh giá trên Super Admin (Blade)
+Menu Quản lý Đánh giá (Review Moderation):
+Xem toàn bộ đánh giá của học sinh trên hệ thống.
+Ẩn hoặc xóa các đánh giá có ngôn từ thô tục, bôi nhọ cá nhân không đúng sự thật.
+Tự động trừ điểm và cập nhật lại rating_avg khi có đánh giá bị ẩn/xóa.
+GIAI ĐOẠN 5: TƯƠNG TÁC, CHAT IN-APP & BẢNG TIN CỘNG ĐỒNG
+1. Danh sách chức năng chi tiết
+Chức năng 5.1: Danh sách Yêu thích & Tương tác Tin tưởng
+Lưu yêu thích (post_favorites):
+Học sinh bấm biểu tượng trái tim trên thẻ khóa học để lưu vào mục "Khóa học đã lưu".
+Bấm lại lần nữa để bỏ lưu (Toggle Favorite).
+Nút "Tin tưởng" (profile_interactions type trust):
+Học sinh bấm nút "Tin tưởng" trên hồ sơ giáo viên.
+Mỗi học sinh chỉ được bấm 1 lần trên 1 hồ sơ giáo viên.
+Tăng chỉ số trust_count trên trang cá nhân của người dạy để tăng uy tín cộng đồng.
+Chức năng 5.2: Nhắn tin trực tiếp trong ứng dụng (In-app Chat)
+Kiến trúc dữ liệu:
+Bảng chat_conversations: Cuộc trò chuyện giữa 1 Học sinh và 1 Người dạy (Teacher hoặc Center).
+Bảng chat_participants: Quản lý người tham gia, thời điểm đọc tin cuối (last_read_at), bật/tắt chuông (is_muted).
+Bảng chat_messages: Nội dung tin nhắn, người gửi, thời điểm gửi.
+Bảng chat_attachments: Ảnh bài tập, tệp PDF gửi kèm trong tin nhắn.
+Giao diện Chat trên React FE (/messages):
+Cột bên trái: Danh sách các hội thoại gần nhất, hiển thị avatar, tên người dạy/học sinh, nội dung tin nhắn mới nhất, badge số tin nhắn chưa đọc.
+Khung bên phải: Khung chat trực tiếp, bong bóng tin nhắn, thời gian gửi, trạng thái "Đã gửi" / "Đã xem".
+Chức năng:
+Gửi tin nhắn tức thì bằng cách nhấn Enter.
+Đính kèm ảnh hoặc tài liệu bằng nút upload.
+Cuộn tự động xuống tin nhắn mới nhất.
+Công nghệ Real-time: Sử dụng thư viện pusher/pusher-php-server đã cài sẵn trên BE, phát sự kiện MessageSent đến kênh riêng tư của người nhận.
+Chức năng 5.3: Bảng tin Chia sẻ Kiến thức & Hoạt động (Feed)
+Đăng bài lên Feed (feed_posts):
+Giáo viên và Trung tâm có thể soạn bài viết chia sẻ phương pháp học, mẹo làm bài thi, hình ảnh buổi học thực tế.
+Hỗ trợ đính kèm nhiều ảnh (feed_media).
+Tương tác trên Feed:
+Học sinh và cộng đồng có thể xem dòng thời gian (Timeline) các bài viết mới nhất.
+Thả tim bài viết (feed_likes): Toggle like/unlike theo thời gian thực.
+Bình luận bài viết (feed_comments): Học sinh đặt câu hỏi hoặc trao đổi bài tập dưới bài viết của giáo viên.
+Chức năng 5.4: Hệ thống Thông báo In-app (Notifications Dropdown)
+Menu Chuông thông báo trên Header:
+Hiển thị chấm đỏ khi có thông báo mới chưa đọc.
+Phân loại thông báo:
+lead: Dành cho giáo viên/trung tâm khi có học viên gửi yêu cầu tư vấn mới.
+verification: Dành cho giáo viên/trung tâm khi hồ sơ xác minh được duyệt hoặc bị từ chối.
+post: Khi bài đăng khóa học được xuất bản hoặc cần sửa đổi.
+chat: Khi có tin nhắn mới từ đối phương.
+review: Khi có học viên vừa đánh giá khóa học.
+Bấm vào thông báo sẽ dẫn ngay tới trang chi tiết liên quan và tự động đánh dấu đã đọc (read_at = now()).
+GIAI ĐOẠN 6: DASHBOARD ADMIN, BÁO CÁO & GIÁM SÁT AN TOÀN
+1. Danh sách chức năng chi tiết
+Chức năng 6.1: Dashboard Thống kê & Báo cáo KPI Tổng thể (Blade Admin)
+Các chỉ số đo lường chính (KPI Cards):
+Tổng số người dùng hệ thống: Phân tách chi tiết số lượng Học viên, Giáo viên, Trung tâm.
+Số hồ sơ đang chờ xác minh danh tính (pending verifications).
+Số bài đăng khóa học đang chờ kiểm duyệt (pending posts).
+Tổng số yêu cầu tư vấn được gửi trong tháng.
+Tỷ lệ chốt học viên thành công (Conversion Rate = converted / total leads).
+Biểu đồ trực quan (Charts):
+Biểu đồ đường: Tăng trưởng tài khoản mới theo từng tuần/tháng.
+Biểu đồ tròn: Cơ cấu môn học được mở lớp nhiều nhất.
+Bảng thống kê từ khóa và môn học được tìm kiếm nhiều nhất (Dữ liệu từ bảng search_logs).
+Chức năng 6.2: Quản trị Tài khoản & Phân quyền Người dùng (Account Management)
+Danh sách người dùng (UserController):
+Tìm kiếm theo Họ tên, Email, Số điện thoại.
+Lọc theo Role: student, teacher, center, super_admin.
+Lọc theo Trạng thái: active, blocked.
+Hành động Quản trị:
+Khóa tài khoản (Block): Khi tài khoản có hành vi gian lận hoặc vi phạm chính sách:
+Admin nhập lý do khóa bắt buộc (blocked_reason).
+Hệ thống ghi nhận blocked_at = now(), cập nhật users.status = 'blocked'.
+Thu hồi toàn bộ token đăng nhập hiện có trong personal_access_tokens để đăng xuất cưỡng chế người dùng ngay lập tức.
+Mở khóa tài khoản (Unblock): Đưa status trở về active.
+Chức năng 6.3: Tiếp nhận & Xử lý Báo cáo Vi phạm (Reports Management)
+Cơ chế báo cáo từ người dùng (Frontend):
+Học sinh có nút "Báo cáo" ở chân mỗi bài đăng, hồ sơ người dạy hoặc bình luận.
+Chọn lý do: Lừa đảo học phí, Thông tin sai sự thật, Ngôn từ không phù hợp, Giả mạo danh tính.
+Nhập mô tả chi tiết bằng chứng.
+Quy trình xử lý của Admin trên Blade (reports):
+Danh sách báo cáo phân theo trạng thái: pending (Chờ xử lý), investigating (Đang điều tra), resolved (Đã giải quyết), dismissed (Bác bỏ).
+Admin bấm xem chi tiết: Xem nội dung tố cáo, liên kết trực tiếp tới đối tượng bị tố cáo (target_type: post, teacher, center, review, feed_post, user).
+Thao tác giải quyết:
+Nếu có vi phạm: Bấm nút "Ẩn bài viết" hoặc "Khóa tài khoản" trực tiếp từ giao diện báo cáo.
+Cập nhật báo cáo sang resolved, ghi chú cách thức xử lý.
+Nếu không vi phạm: Bấm "Bác bỏ báo cáo" (dismissed).
+Chức năng 6.4: Nhật ký Quản trị & Giám sát An toàn (Audit Logs)
+Cơ chế tự động ghi vết (admin_logs):
+Mọi thao tác làm thay đổi dữ liệu trọng yếu của Admin đều được ghi lại tự động:
+Ai thực hiện (admin_user_id).
+Hành động gì (action: duyệt bài, duyệt hồ sơ, khóa tài khoản, xóa đánh giá...).
+Đối tượng bị tác động (target_type, target_id).
+Dữ liệu cũ và mới (old_values, new_values dạng JSON).
+Địa chỉ IP và thiết bị (ip_address, user_agent).
+Giao diện tra cứu Audit Log:
+Admin cấp cao có thể tra cứu lịch sử duyệt của các Admin cấp dưới khi xảy ra khiếu nại.
+Dữ liệu nhật ký chỉ cho phép xem (Read-only), không cho phép sửa hoặc xóa dưới bất kỳ hình thức nào.
+TỔNG HỢP MATRIX KỸ THUẬT & FILES CẦN THAO TÁC THEO 6 GIAI ĐOẠN
+Giai đoạn	Backend Files (Controllers, Models, Migrations)	Frontend Files (Pages, Services, Contexts)
+Giai đoạn 1	- app/Http/Controllers/Api/AuthController.php
+- app/Models/User.php
+- app/Models/StudentProfile.php
+- app/Models/TeacherProfile.php
+- app/Models/Center.php
+- routes/api.php
+- database/seeders/RoleAndPermissionSeeder.php	- src/pages/Register/Register.jsx
+- src/pages/Register/registerData.js
+- src/pages/Login/Login.jsx
+- src/contexts/AuthContext.jsx
+- src/services/authService.js
+- src/services/api.js
+Giai đoạn 2	- app/Http/Controllers/Api/VerificationController.php
+- app/Http/Controllers/CategoryController.php
+- app/Http/Controllers/BannerController.php
+- app/Models/VerificationRequest.php
+- app/Models/VerificationDocument.php
+- Blade Views: resources/views/admin/verifications/	- src/pages/TeacherVerification/
+- src/pages/CenterVerification/
+- src/services/verificationService.js
+- src/services/masterDataService.js
+Giai đoạn 3	- app/Http/Controllers/Api/PostController.php
+- app/Http/Controllers/PostModerationController.php (Blade)
+- app/Models/Post.php
+- app/Models/CourseBatch.php
+- app/Models/CourseSchedule.php
+- app/Models/PostModerationLog.php	- src/pages/Home/Home.jsx
+- src/pages/Search/SearchPage.jsx
+- src/pages/PostDetail/PostDetailPage.jsx
+- src/pages/TeacherProfile/TeacherProfilePage.jsx
+- src/pages/CourseCreate/CourseCreatePage.jsx
+Giai đoạn 4	- app/Http/Controllers/Api/ConsultationController.php
+- app/Http/Controllers/Api/ReviewController.php
+- app/Models/ConsultationRequest.php
+- app/Models/RequestStatusLog.php
+- app/Models/Review.php
+- Blade Views: resources/views/admin/reviews/	- src/pages/ConsultationHistory/
+- src/pages/TeacherLeads/TeacherLeadsPage.jsx (CRM)
+- src/components/ReviewModal.jsx
+- src/services/leadService.js
+- src/services/reviewService.js
+Giai đoạn 5	- app/Http/Controllers/Api/ChatController.php
+- app/Http/Controllers/Api/FeedController.php
+- app/Http/Controllers/Api/NotificationController.php
+- app/Models/ChatConversation.php
+- app/Models/ChatMessage.php
+- app/Models/FeedPost.php
+- app/Events/MessageSent.php	- src/pages/Messages/MessagesPage.jsx
+- src/pages/Feed/FeedPage.jsx
+- src/components/NotificationDropdown.jsx
+- src/services/chatService.js
+- src/services/feedService.js
+Giai đoạn 6	- app/Http/Controllers/AdminDashboardController.php (Blade)
+- app/Http/Controllers/UserController.php
+- app/Http/Controllers/ReportController.php
+- app/Models/AdminLog.php
+- app/Models/Report.php
+- app/Models/SearchLog.php	- src/components/ReportModal.jsx
+- src/services/reportService.js
+- Blade Views: resources/views/admin/dashboard.blade.php, resources/views/admin/reports/, resources/views/admin/logs/
+
+Tài liệu này là cẩm nang chi tiết nhất giúp đội ngũ phát triển và AI Codex có thể bắt tay lập trình từng file, từng controller, từng component một cách chính xác tuyệt đối mà không cần phỏng đoán.

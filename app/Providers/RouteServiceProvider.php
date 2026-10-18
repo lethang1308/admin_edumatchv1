@@ -24,6 +24,26 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('registration-otp-send', function (Request $request) {
+            $email = $request->input('email');
+            $identity = hash('sha256', is_string($email) ? mb_strtolower(trim($email)) : '');
+
+            return [
+                Limit::perMinute(5)->by('registration-send-ip:'.$request->ip()),
+                Limit::perMinute(1)->by('registration-send-email:'.$identity),
+            ];
+        });
+        $resetIdentity = fn (Request $request) => hash('sha256', \App\Support\VietnamesePhone::normalize(mb_strtolower(trim((string) (is_string($request->input('identifier')) ? $request->input('identifier') : '')))));
+        RateLimiter::for('password-reset-send', function (Request $request) use ($resetIdentity) {
+            return [
+                Limit::perMinute(5)->by('otp-send-ip:'.$request->ip()),
+                Limit::perMinute(1)->by('otp-send:'.$resetIdentity($request)),
+                Limit::perHour(5)->by('otp-send-hour:'.$resetIdentity($request)),
+            ];
+        });
+        RateLimiter::for('password-reset-verify', function (Request $request) use ($resetIdentity) {
+            return [Limit::perMinute(10)->by('otp-verify:'.$request->ip().':'.$resetIdentity($request))];
+        });
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });

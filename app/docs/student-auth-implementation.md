@@ -1,5 +1,9 @@
 # Đăng ký và đăng nhập học viên
 
+Luồng này đã được mở rộng ở Giai đoạn 1: xem [phase1-completion.md](phase1-completion.md) cho đăng ký GV/trung tâm, hồ sơ và quản lý mật khẩu.
+
+Đăng ký hiện bắt buộc xác thực email bằng OTP trước khi tạo tài khoản: xem [registration-email-otp.md](registration-email-otp.md).
+
 Backend: `C:\laragon\www\admin_edumatchv1`.
 Frontend: `D:\Production\Edumatchv1`.
 
@@ -7,6 +11,7 @@ Frontend: `D:\Production\Edumatchv1`.
 
 | Method | Endpoint | Chức năng |
 | --- | --- | --- |
+| POST | /api/auth/register/send-otp | Kiểm tra email/SĐT và gửi OTP đăng ký qua email |
 | POST | /api/auth/register | Tạo tài khoản học viên và hồ sơ trong một transaction |
 | POST | /api/auth/login | Đăng nhập bằng email/SĐT |
 | GET | /api/auth/me, /api/auth/user | Lấy user, student_profile, roles và permissions |
@@ -25,15 +30,16 @@ Payload đăng ký:
   "date_of_birth": "2002-05-15",
   "password": "Admin@123",
   "password_confirmation": "Admin@123",
-  "role": "student"
+  "role": "student",
+  "otp": "123456"
 }
 ```
 
 - Hỗ trợ aliases `full_name`/`fullName` cho name; `dateOfBirth`/`dob` cho date_of_birth.
-- Email được trim, chuyển chữ thường, kiểm tra RFC/DNS và unique. Domain email cần có DNS hợp lệ; không gửi thư xác minh trong tính năng này.
+- Email được trim, chuyển chữ thường, kiểm tra RFC/DNS và unique. Gọi API gửi OTP trước, sau đó gửi mã nhận được cùng payload đăng ký. Mã đúng mới tạo tài khoản và gán email_verified_at.
 - SĐT di động VN đầu 03/05/07/08/09 được chuẩn hóa thành +84. Kiểm tra trùng và đăng nhập hỗ trợ cả dữ liệu cũ lưu đầu 0. Cả tài khoản xóa mềm vẫn giữ unique email/phone.
 - Name 2–150 ký tự, email tối đa 191, password 8–128 và phải xác nhận, ngày sinh bắt buộc dạng YYYY-MM-DD và không trong tương lai.
-- Endpoint này chỉ nhận role student hoặc bỏ trống. Teacher/center/super_admin trả lỗi 422, tránh việc tài khoản bị gán sai role. Chức năng đăng ký hồ sơ giáo viên/trung tâm nằm ngoài kế hoạch học viên này.
+- Endpoint hiện hỗ trợ student, teacher và center, với bộ validation/hồ sơ riêng. Role quản trị không thể đăng ký công khai. Các quy tắc dưới đây mô tả luồng học viên.
 - User/profile/role/token được tạo trong cùng transaction. Không lấy status, balance hoặc quyền từ payload.
 - Response thành công có `user`, `token`, `access_token`, `token_type`; hai trường token có cùng giá trị.
 - Login nhận `email`, `phone`, hoặc `identifier`, cùng `password`; `remember` là trường boolean tương thích FE, không thay đổi thời hạn token Sanctum mặc định. FE tiếp tục lưu phiên trong localStorage.
@@ -69,7 +75,7 @@ BE:
 php vendor/phpunit/phpunit/phpunit tests/Feature/StudentAuthTest.php
 ```
 
-10 tests bao phủ đăng ký/hồ sơ/role/token, dữ liệu sai, trùng email/SĐT, aliases và route cũ, login hai loại định danh, blocked/xóa mềm, logout/refresh, rollback khi tạo hồ sơ lỗi, seeder chạy nhiều lần. Tests tạo database MySQL tạm có prefix edumatch_auth_test_ và xóa sau khi hoàn tất; không sửa database ứng dụng.
+10 tests bao phủ đăng ký/hồ sơ/role/token, dữ liệu sai, trùng email/SĐT, aliases và route cũ, login hai loại định danh, blocked/xóa mềm, logout/refresh, rollback khi tạo hồ sơ lỗi, seeder chạy nhiều lần. Tests tạo database MySQL tạm có prefix edumatch_feature_test_ và xóa sau khi hoàn tất; không sửa database ứng dụng.
 
 FE:
 

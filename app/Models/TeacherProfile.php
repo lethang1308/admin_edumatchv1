@@ -42,7 +42,7 @@ class TeacherProfile extends Model
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',
-        'date_of_birth' => 'date',
+        'date_of_birth' => 'date:Y-m-d',
         'experience_years' => 'integer',
         'province_id' => 'integer',
         'district_id' => 'integer',

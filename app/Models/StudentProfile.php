@@ -25,7 +25,7 @@ class StudentProfile extends Model
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',
-        'date_of_birth' => 'date',
+        'date_of_birth' => 'date:Y-m-d',
         'province_id' => 'integer',
         'district_id' => 'integer',
         'ward_id' => 'integer',

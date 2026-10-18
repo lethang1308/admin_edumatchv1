@@ -4,39 +4,89 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterCenterRequest;
 use App\Http\Requests\RegisterStudentRequest;
+use App\Http\Requests\RegisterTeacherRequest;
+use App\Http\Requests\SendRegistrationOtpRequest;
 use App\Models\User;
+use App\Services\RegistrationOtpService;
 use App\Support\VietnamesePhone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
 {
-    public function register(RegisterStudentRequest $request): JsonResponse
+    public function sendRegistrationOtp(SendRegistrationOtpRequest $request, RegistrationOtpService $otpService): JsonResponse
     {
         $data = $request->validated();
+        $otp = $otpService->issue($data['email'], $data['name'] ?? '');
+        $response = [
+            'message' => 'Mã xác nhận OTP đã được gửi đến email '.$data['email'].'. Vui lòng kiểm tra hộp thư.',
+            'email' => $data['email'],
+            'expires_in' => config('registration_otp.ttl_minutes') * 60,
+            'resend_after' => config('registration_otp.resend_after_seconds'),
+        ];
+        if (app()->environment(['local', 'testing']) && config('registration_otp.debug')) {
+            $response['debug_otp'] = $otp;
+        }
+
+        return response()->json($response);
+    }
+
+    public function register(Request $request, RegistrationOtpService $otpService): JsonResponse
+    {
+        $request = app(match ($request->input('role', 'student')) {
+            'teacher' => RegisterTeacherRequest::class,
+            'center' => RegisterCenterRequest::class,
+            default => RegisterStudentRequest::class,
+        });
+        $data = $request->validated();
+        $role = $data['role'] ?? 'student';
         try {
-            [$user, $token] = DB::transaction(function () use ($data) {
+            [$user, $token, $otpError] = DB::transaction(function () use ($data, $role, $otpService) {
+                $otpError = $otpService->consume($data['email'], $data['otp']);
+                if ($otpError !== null) {
+                    return [null, null, $otpError];
+                }
                 $user = User::create([
-                    'role' => 'student',
-                    'name' => $data['name'],
-                    'email' => $data['email'],
+                    'role' => $role,
+                    'name' => mb_substr($data['name'], 0, 150),
+                    'email' => $data['email'] ?? null,
+                    'email_verified_at' => now(),
                     'phone' => $data['phone'],
                     'password' => $data['password'],
                     'status' => 'active',
                 ]);
-                $user->studentProfile()->create([
-                    'full_name' => $user->name,
-                    'date_of_birth' => $data['date_of_birth'],
-                ]);
-                $user->assignRole(Role::findOrCreate('student', 'web'));
+                if ($role === 'teacher') {
+                    $user->teacherProfile()->create([
+                        'full_name' => $user->name, 'date_of_birth' => $data['date_of_birth'],
+                        'headline' => $data['headline'] ?? null, 'bio' => $data['bio'] ?? null,
+                        'experience_years' => $data['experience_years'] ?? 0,
+                        'show_phone' => $data['show_phone'], 'verification_status' => 'unverified',
+                    ]);
+                } elseif ($role === 'center') {
+                    $user->center()->create([
+                        'name' => $data['name'],
+                        // User ID makes slugs unique even for concurrent registrations and deleted centers.
+                        'slug' => mb_substr(Str::slug($data['name']) ?: 'trung-tam', 0, 200).'-'.$user->id,
+                        'founded_year' => $data['founded_year'], 'bio' => $data['bio'] ?? null,
+                        'hotline' => $data['phone'], 'contact_email' => $data['email'] ?? null,
+                        'verification_status' => 'unverified',
+                    ]);
+                } else {
+                    $user->studentProfile()->create([
+                        'full_name' => $user->name, 'date_of_birth' => $data['date_of_birth'],
+                    ]);
+                }
+                $user->assignRole(Role::findOrCreate($role, 'web'));
 
-                return [$user, $user->createToken('auth_token')->plainTextToken];
+                return [$user, $user->createToken('auth_token')->plainTextToken, null];
             });
         } catch (QueryException $exception) {
             // A concurrent registration can pass validation before the unique insert.
@@ -52,7 +102,11 @@ class AuthController extends Controller
             throw $exception;
         }
 
-        return $this->tokenResponse($user, $token, 'Đăng ký tài khoản học viên thành công.', 201);
+        if ($otpError !== null) {
+            throw ValidationException::withMessages(['otp' => $otpError]);
+        }
+
+        return $this->tokenResponse($user, $token, 'Đăng ký tài khoản thành công.', 201);
     }
 
     public function login(LoginRequest $request): JsonResponse
@@ -88,7 +142,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => $user->load('studentProfile'),
+            'user' => $user->load(['studentProfile', 'teacherProfile', 'center']),
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name'),
         ]);
@@ -131,7 +185,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'message' => $message,
-            'user' => $user->load('studentProfile'),
+            'user' => $user->load(['studentProfile', 'teacherProfile', 'center']),
             'access_token' => $token,
             'token' => $token,
             'token_type' => 'Bearer',
