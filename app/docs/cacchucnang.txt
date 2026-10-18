@@ -1,0 +1,91 @@
+1. ROLE 1: HỌC SINH (Student / Học viên)
+
+Mục tiêu chính: Tìm đúng người dạy phù hợp, gửi yêu cầu tư vấn, trao đổi thông tin và đánh giá chất lượng.
+
+Quản lý tài khoản:
+Đăng ký bằng Số điện thoại/Email + Mật khẩu (mặc định là Student).
+Đăng nhập, đổi mật khẩu, quên mật khẩu (OTP/Link).
+Quản lý hồ sơ cá nhân: Họ tên, avatar, tỉnh/thành, quận/huyện, ngày sinh, nhu cầu học tập.
+Khám phá & Tìm kiếm:
+Xem trang chủ (Banner, môn học tiêu biểu, giáo viên & trung tâm nổi bật).
+Tìm kiếm & Lọc đa tiêu chí: Theo môn học, cấp lớp, hình thức (Online / Dạy tại nhà / Dạy tại lớp trung tâm), khu vực (Tỉnh/Quận), khoảng học phí.
+Xem chi tiết bài đăng / khóa học: Lộ trình, lịch học, học phí, hồ sơ người dạy.
+Xem hồ sơ công khai của Giáo viên / Trung tâm: Bio, bằng cấp đã xác minh, các khóa học đang mở, các đánh giá của học viên cũ.
+Tương tác & Gửi nhu cầu (Lead):
+Gửi yêu cầu tư vấn: Điền form (Họ tên, SĐT, Email, Lời nhắn/Mục tiêu học) gửi trực tiếp tới bài đăng của Giáo viên hoặc Trung tâm.
+Theo dõi yêu cầu tư vấn: Xem lịch sử các yêu cầu đã gửi và trạng thái xử lý (new ➔ contacted ➔ consulting ➔ converted / failed). Cho phép hủy yêu cầu khi chưa liên hệ.
+Nhắn tin trực tiếp (Chat in-app): Trao đổi lịch học với giáo viên/trung tâm qua giao diện chat hoặc widget chat nổi.
+Cộng đồng & Đánh giá:
+Lưu yêu thích (Favorites): Lưu lại các bài đăng hoặc hồ sơ giáo viên để xem lại.
+Đánh giá & Chấm sao: Chấm 1-5 sao + nhận xét sau khi đã tư vấn thành công (converted).
+Bảng tin (Feed): Xem bài viết chia sẻ, thả tim, bình luận, hỏi đáp trên bài viết của giáo viên/trung tâm.
+Báo cáo vi phạm (Report): Báo cáo bài đăng sai sự thật, hồ sơ lừa đảo hoặc đánh giá độc hại lên Admin.
+2. ROLE 2: GIÁO VIÊN (Teacher / Gia sư tự do)
+
+Mục tiêu chính: Xây dựng thương hiệu cá nhân, đăng bài khóa học, tiếp nhận học viên tiềm năng (Lead).
+
+Tài khoản & Xác minh chuyên môn:
+Đăng ký tài khoản giáo viên với các thông tin nghề nghiệp: Headline, bằng cấp/chứng chỉ (qualifications), số năm kinh nghiệm (experience), bio giới thiệu, ngày sinh.
+Tùy chọn bật/tắt công khai số điện thoại trên trang cá nhân.
+Tải tài liệu xác minh: Upload ảnh bằng tốt nghiệp, chứng chỉ sư phạm, chứng chỉ ngoại ngữ (IELTS, HSK...), CCCD lên hệ thống. Theo dõi trạng thái duyệt (unverified ➔ pending ➔ verified / rejected).
+Đăng & Quản lý bài đăng / Khóa học:
+Tạo bài đăng mới: Tiêu đề, môn học chính, cấp độ, mô tả chi tiết, mục tiêu đầu ra, hình thức dạy (online/offline), lịch học dự kiến, học phí (theo khóa/tháng/buổi).
+Cơ chế trạng thái bài: Lưu nháp (draft) ➔ Gửi duyệt (pending) ➔ Chờ Admin duyệt mới được hiển thị (published).
+Nếu bị từ chối (rejected), xem lý do của Admin để chỉnh sửa và gửi duyệt lại.
+Chủ động Ẩn/Tạm dừng tuyển sinh bài đăng khi đã đủ lớp.
+Quản lý học viên tiềm năng (Lead Management):
+Nhận thông báo khi có học viên gửi yêu cầu tư vấn mới.
+Danh sách yêu cầu tư vấn: Xem thông tin liên hệ, lời nhắn, bài đăng nguồn.
+Cập nhật tiến trình xử lý: Chuyển trạng thái từ new ➔ contacted (đã gọi điện) ➔ consulting (đang trao đổi lịch) ➔ converted (chốt học viên thành công) hoặc failed (học viên không phù hợp). Có ô ghi chú nội bộ.
+Trang cá nhân & Bảng tin:
+Đăng bài viết chia sẻ kiến thức, hình ảnh lớp học, video giảng dạy lên Bảng tin cá nhân và Feed cộng đồng.
+Trả lời bình luận của học viên.
+Xem thống kê cá nhân: Số lượt tin tưởng (Trust count), số bài viết, số học viên đã liên hệ, đánh giá trung bình.
+3. ROLE 3: TRUNG TÂM ĐÀO TẠO (Center / Cơ sở giáo dục)
+
+Mục tiêu chính: Giới thiệu thương hiệu tổ chức, đăng nhiều khóa học đa dạng, xây dựng uy tín pháp lý.
+
+Lưu ý nghiệp vụ: Trung tâm về bản chất là một Tổ chức giáo dục (Pháp nhân), khác với Giáo viên tự do (Cá nhân).
+
+Hồ sơ pháp nhân & Xác thực tổ chức:
+Đăng ký tài khoản Trung tâm: Tên tổ chức, năm thành lập (foundedYear), địa chỉ trụ sở, số điện thoại hotline, email đại diện, giấy phép thành lập/hoạt động giáo dục.
+Nộp hồ sơ pháp lý: Upload Giấy phép đăng ký kinh doanh, Giấy phép hoạt động giáo dục đào tạo để Admin cấp huy hiệu "Đã xác thực pháp lý" (verified).
+Đăng & Quản lý chương trình đào tạo (Khóa học của trung tâm):
+Đăng các lớp học quy mô lớn, nhiều ca học, học tại phòng học (classroom) của trung tâm hoặc trực tuyến.
+Quy trình kiểm duyệt tương tự giáo viên: draft ➔ pending ➔ Admin duyệt ➔ published.
+Có thể chỉ định giáo viên phụ trách lớp học (nếu mở rộng).
+Quản lý Lead & Tuyển sinh:
+Nhận lead tư vấn gửi về cho các khóa học của trung tâm.
+Đội ngũ tư vấn viên của trung tâm gọi điện, chăm sóc và cập nhật trạng thái converted/failed.
+Trang thương hiệu trung tâm:
+Trang Profile riêng của trung tâm: Có logo, ảnh bìa cơ sở vật chất, năm thành lập, huy hiệu pháp lý, danh sách tất cả các khóa học đang mở, các bài viết sự kiện/ưu đãi.
+Học viên có thể bấm "Tin tưởng / Yêu thích" trung tâm.
+4. ROLE 4: SUPER ADMIN (Quản trị hệ thống - Laravel Blade)
+
+Mục tiêu chính: Kiểm soát chất lượng nội dung, xác minh danh tính người dạy, duy trì sự minh bạch của nền tảng.
+
+Dashboard & Báo cáo số liệu tổng quan:
+Tổng số User mới (phân tách Student, Teacher, Center).
+Số hồ sơ giáo viên/trung tâm đang chờ duyệt xác minh.
+Số bài đăng/khóa học đang chờ duyệt (pending).
+Số yêu cầu tư vấn mới và tỷ lệ chốt thành công (converted).
+Biểu đồ xu hướng môn học được tìm kiếm nhiều nhất.
+Quản lý Tài khoản & Phân quyền:
+Xem danh sách, tìm kiếm, lọc theo role (student, teacher, center, admin).
+Khóa tài khoản (blocked) hoặc mở khóa khi có vi phạm.
+Xem chi tiết lịch sử hoạt động của tài khoản.
+Xác minh Giáo viên & Trung tâm (Verification Center):
+Xem chi tiết hồ sơ, mở xem file bằng cấp, chứng chỉ, giấy phép kinh doanh đính kèm.
+Quyết định: Phê duyệt (verified) hoặc Từ chối (rejected) kèm lý do cụ thể.
+Kiểm duyệt Bài đăng / Khóa học (Post Moderation):
+Xem danh sách bài chờ duyệt (pending), bài đã xuất bản (published), bài bị từ chối.
+Xem preview bài đăng y như học viên nhìn thấy ngoài giao diện.
+Thao tác: Duyệt (published), Từ chối (rejected + nhập lý do), hoặc Hạ bài vi phạm (hidden).
+Quản lý Danh mục hệ thống (CMS Categories & Content):
+CRUD Danh mục Môn học (subjects): Tên môn, slug, icon, thứ tự sắp xếp, trạng thái bật/tắt.
+Quản lý Banner trang chủ (banners): Ảnh banner, link chuyển hướng, thứ tự hiển thị.
+Kiểm duyệt Đánh giá & Xử lý Báo cáo vi phạm:
+Xem danh sách đánh giá của học viên; ẩn/xóa đánh giá bôi nhọ, tục tĩu hoặc spam.
+Tiếp nhận báo cáo vi phạm (reports): Kiểm tra đối tượng bị tố cáo, khóa bài viết/tài khoản và đóng báo cáo (resolved).
+Nhật ký quản trị (Audit Logs):
+Ghi lại ai duyệt bài nào, ai khóa tài khoản nào, lúc mấy giờ để tra cứu trách nhiệm.

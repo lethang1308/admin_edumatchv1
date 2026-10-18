@@ -2,52 +2,41 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use App\Models\User;
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleAndPermissionSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        // Reset cached roles and permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-
-        // create permissions
-        Permission::create(['name' => 'access_admin']);
-        Permission::create(['name' => 'manage_users']);
-        Permission::create(['name' => 'manage_content']);
-
-        // create roles and assign created permissions
-
-        // this can be done as separate statements
-        $role = Role::create(['name' => 'admin']);
-        $role->givePermissionTo('access_admin');
-        $role->givePermissionTo('manage_users');
-        $role->givePermissionTo('manage_content');
-
-        $role = Role::create(['name' => 'user']);
-
-        // Create default admin if not exists
-        $admin = User::firstOrCreate([
-            'phone' => '0909090909',
-        ], [
-            'full_name' => 'Super Admin',
-            'email' => 'admin@example.com',
-            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
-        ]);
-
-        $admin->assignRole('admin');
-
-        // Sync existing users
-        $users = User::where('id', '!=', $admin->id)->get();
-        foreach ($users as $user) {
-            if ($user->role === 'admin') {
-                $user->assignRole('admin');
-            } else {
-                $user->assignRole('user');
-            }
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $permissions = ['access_admin', 'manage_users', 'manage_content'];
+        foreach ($permissions as $name) {
+            Permission::findOrCreate($name, 'web');
         }
+        foreach (['student', 'teacher', 'center', 'super_admin', 'admin', 'user'] as $name) {
+            Role::findOrCreate($name, 'web');
+        }
+        Role::findByName('super_admin', 'web')->givePermissionTo($permissions);
+        Role::findByName('admin', 'web')->givePermissionTo($permissions);
+
+        // Add matching roles without removing existing content/custom permissions.
+        // Seeding roles never creates an account with a publicly known password.
+        User::query()->chunkById(200, function ($users) {
+            foreach ($users as $user) {
+                $role = match ($user->role) {
+                    'user' => 'student',
+                    'admin' => 'super_admin',
+                    default => $user->role,
+                };
+                if (in_array($role, ['student', 'teacher', 'center', 'super_admin'], true)) {
+                    $user->assignRole($role);
+                }
+            }
+        });
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

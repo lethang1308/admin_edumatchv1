@@ -43,8 +43,8 @@
                             style="display: inline;">
                             @csrf
                             @method('PATCH')
-                            <button type="submit" class="badge fs-5 {{ $banner->status ? 'bg-success' : 'bg-secondary' }}">
-                                {{ $banner->status ? 'Kích hoạt' : 'Tắt' }}
+                            <button type="submit" class="badge fs-5 {{ $banner->status === 'active' ? 'bg-success' : 'bg-secondary' }}">
+                                {{ $banner->status === 'active' ? 'Kích hoạt' : 'Tắt' }}
                             </button>
                         </form>
 

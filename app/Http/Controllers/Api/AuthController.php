@@ -3,103 +3,143 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterStudentRequest;
 use App\Models\User;
+use App\Support\VietnamesePhone;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterStudentRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'full_name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:users|regex:/^0[0-9]{9}$/',
-            'password' => 'required|string|min:6|confirmed',
-        ]);
+        $data = $request->validated();
+        try {
+            [$user, $token] = DB::transaction(function () use ($data) {
+                $user = User::create([
+                    'role' => 'student',
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'phone' => $data['phone'],
+                    'password' => $data['password'],
+                    'status' => 'active',
+                ]);
+                $user->studentProfile()->create([
+                    'full_name' => $user->name,
+                    'date_of_birth' => $data['date_of_birth'],
+                ]);
+                $user->assignRole(Role::findOrCreate('student', 'web'));
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+                return [$user, $user->createToken('auth_token')->plainTextToken];
+            });
+        } catch (QueryException $exception) {
+            // A concurrent registration can pass validation before the unique insert.
+            if (($exception->errorInfo[1] ?? null) === 1062) {
+                $message = $exception->errorInfo[2] ?? '';
+                if (str_contains($message, 'users_phone_unique')) {
+                    throw ValidationException::withMessages(['phone' => 'Số điện thoại này đã được sử dụng.']);
+                }
+                if (str_contains($message, 'users_email_unique')) {
+                    throw ValidationException::withMessages(['email' => 'Email này đã được sử dụng.']);
+                }
+            }
+            throw $exception;
         }
 
-        $user = User::create([
-            'full_name' => $request->full_name,
-            'phone' => $request->phone,
-            'password' => Hash::make($request->password),
-        ]);
-
-        $user->assignRole('user');
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'User registered successfully',
-            'user' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ], 201);
+        return $this->tokenResponse($user, $token, 'Đăng ký tài khoản học viên thành công.', 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'phone' => 'required|string',
-            'password' => 'required|string',
-        ]);
+        $data = $request->validated();
+        $identifier = trim($data['identifier']);
+        $query = User::query();
+        $user = str_contains($identifier, '@')
+            ? $query->where('email', mb_strtolower($identifier))->first()
+            : $query->whereIn('phone', VietnamesePhone::variants($identifier))->first();
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        if (! $user || ! Hash::check($data['password'], $user->password)) {
+            return response()->json(['message' => 'Thông tin đăng nhập hoặc mật khẩu không chính xác.'], 401);
+        }
+        if ($user->status === 'blocked') {
+            return $this->blockedResponse();
         }
 
-        if (!Auth::attempt($request->only('phone', 'password'))) {
-            return response()->json([
-                'message' => 'Invalid login details'
-            ], 401);
-        }
+        $token = DB::transaction(function () use ($user) {
+            $user->update(['last_login_at' => now()]);
 
-        $user = User::where('phone', $request->phone)->firstOrFail();
+            return $user->createToken('auth_token')->plainTextToken;
+        });
 
-        // Optional: Revoke all previous tokens if you want single-session behavior
-        // $user->tokens()->delete();
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+        return $this->tokenResponse($user, $token, 'Đăng nhập thành công.');
     }
 
-    public function logout(Request $request)
-    {
-        $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'message' => 'Logged out successfully'
-        ]);
-    }
-
-    public function refresh(Request $request)
+    public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user->currentAccessToken()->delete();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if ($user->status === 'blocked') {
+            return $this->blockedResponse();
+        }
 
         return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
+            'user' => $user->load('studentProfile'),
+            'roles' => $user->getRoleNames(),
+            'permissions' => $user->getAllPermissions()->pluck('name'),
         ]);
     }
 
-    public function user(Request $request)
+    public function user(Request $request): JsonResponse
+    {
+        return $this->me($request);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $token = $request->user()->currentAccessToken();
+        if ($token instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $token->delete();
+        }
+
+        return response()->json(['message' => 'Đăng xuất thành công.']);
+    }
+
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->status === 'blocked') {
+            return $this->blockedResponse();
+        }
+        $token = DB::transaction(function () use ($user) {
+            $currentToken = $user->currentAccessToken();
+            if ($currentToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+                $currentToken->delete();
+            }
+
+            return $user->createToken('auth_token')->plainTextToken;
+        });
+
+        return $this->tokenResponse($user, $token, 'Làm mới phiên đăng nhập thành công.');
+    }
+
+    private function tokenResponse(User $user, string $token, string $message, int $status = 200): JsonResponse
     {
         return response()->json([
-            'user' => $request->user(),
-            'roles' => $request->user()->getRoleNames(),
-            'permissions' => $request->user()->getAllPermissions()->pluck('name'),
-        ]);
+            'message' => $message,
+            'user' => $user->load('studentProfile'),
+            'access_token' => $token,
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ], $status);
+    }
+
+    private function blockedResponse(): JsonResponse
+    {
+        return response()->json(['message' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.'], 403);
     }
 }

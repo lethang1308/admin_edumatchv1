@@ -1,0 +1,869 @@
+// EduMatch - 4 Roles - Laravel + MySQL 8.x
+// Version 2.0 - 18/10/2026. Import whole file into dbdiagram.io
+// Each account has role: student, teacher, center, super_admin.
+// Referential integrity of polymorphic reports is checked in application services.
+
+Table users {
+  Note: 'Bảng xác thực chung cho bốn role; không trộn trường pháp nhân vào tài khoản.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  role varchar(20) [not null, default: 'student', note: "Vai trò: student | teacher | center | super_admin; NOT NULL; DEFAULT student"]
+  name varchar(150) [not null, note: "Tên hiển thị hoặc tên người đại diện; NOT NULL"]
+  email varchar(191) [unique, note: "Email đăng nhập; NULL; UNIQUE"]
+  phone varchar(20) [unique, note: "SĐT đăng nhập, chuẩn hóa E.164; NULL; UNIQUE"]
+  password varchar(255) [not null, note: "Mật khẩu đã băm; NOT NULL"]
+  avatar_path varchar(255) [note: "Ảnh đại diện tài khoản; NULL"]
+  status varchar(20) [not null, default: 'active', note: "active | blocked; NOT NULL; DEFAULT active"]
+  email_verified_at datetime [note: "Thời điểm xác thực email; NULL"]
+  phone_verified_at datetime [note: "Thời điểm xác thực SĐT; NULL"]
+  last_login_at datetime [note: "Đăng nhập lần cuối; NULL"]
+  blocked_reason text [note: "Lý do khóa tài khoản; NULL"]
+  blocked_at datetime [note: "Thời điểm khóa tài khoản; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (role, status, created_at)
+  }
+}
+
+Table administrative_areas {
+  Note: 'Một cây khu vực hỗ trợ tỉnh/thành, quận/huyện lịch sử và phường/xã hiện hành.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  parent_id bigint [note: "Địa giới cha; NULL"]
+  code varchar(30) [not null, unique, note: "Mã địa giới chính thức hoặc hệ thống; NOT NULL; UNIQUE"]
+  name varchar(150) [not null, note: "Tên địa giới; NOT NULL"]
+  level varchar(20) [not null, note: "province | district | ward; NOT NULL"]
+  is_active boolean [default: true, note: "Còn hiệu lực tra cứu; DEFAULT true"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (parent_id, level, is_active)
+  }
+}
+
+Table student_profiles {
+  Note: 'Phần mở rộng 1-1 của user có role student.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [not null, unique, note: "Chủ hồ sơ học viên; NOT NULL; UNIQUE"]
+  full_name varchar(150) [not null, note: "Họ tên; NOT NULL"]
+  date_of_birth date [note: "Ngày sinh; NULL"]
+  province_id bigint [note: "Tỉnh/thành cư trú; NULL"]
+  district_id bigint [note: "Quận/huyện nếu dùng địa giới cũ; NULL"]
+  ward_id bigint [note: "Phường/xã; NULL"]
+  bio text [note: "Giới thiệu và nhu cầu học tổng quát; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+  }
+}
+
+Table teacher_profiles {
+  Note: 'Hồ sơ public cá nhân, thông tin nghề nghiệp và trạng thái xác minh tổng hợp.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [not null, unique, note: "Tài khoản giáo viên; NOT NULL; UNIQUE"]
+  full_name varchar(150) [not null, note: "Họ tên công khai; NOT NULL"]
+  date_of_birth date [note: "Ngày sinh (riêng tư); NULL"]
+  headline varchar(200) [note: "Tiêu đề nghề nghiệp; NULL"]
+  bio longtext [note: "Giới thiệu kinh nghiệm, phương pháp; NULL"]
+  experience_years tinyint [default: 0, note: "Số năm kinh nghiệm; DEFAULT 0"]
+  province_id bigint [note: "Tỉnh dạy trực tiếp; NULL"]
+  district_id bigint [note: "Quận/huyện nếu có; NULL"]
+  ward_id bigint [note: "Phường/xã nếu có; NULL"]
+  show_phone boolean [default: false, note: "Cho phép hiện số điện thoại; DEFAULT false"]
+  verification_status varchar(20) [default: 'unverified', note: "unverified | pending | verified | rejected; DEFAULT unverified"]
+  verified_at datetime [note: "Ngày xác minh thành công; NULL"]
+  rating_avg decimal(3,2) [default: 0, note: "Điểm trung bình review published (cache); DEFAULT 0"]
+  review_count int [default: 0, note: "Số review hợp lệ (cache); DEFAULT 0"]
+  trust_count int [default: 0, note: "Số lượt tin tưởng (cache); DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (verification_status, rating_avg)
+  }
+}
+
+Table centers {
+  Note: 'Tổ chức giáo dục độc lập; owner_user_id là tài khoản role center đại diện.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  owner_user_id bigint [not null, unique, note: "Chủ tài khoản trung tâm; NOT NULL; UNIQUE"]
+  name varchar(200) [not null, note: "Tên trung tâm/pháp nhân; NOT NULL"]
+  slug varchar(230) [not null, unique, note: "Đường dẫn trang thương hiệu; NOT NULL; UNIQUE"]
+  logo_path varchar(255) [note: "Logo; NULL"]
+  cover_path varchar(255) [note: "Ảnh bìa; NULL"]
+  bio longtext [note: "Mô tả thương hiệu, năng lực; NULL"]
+  founded_year smallint [note: "Năm thành lập; NULL"]
+  hotline varchar(20) [note: "Hotline công khai; NULL"]
+  contact_email varchar(191) [note: "Email đại diện; NULL"]
+  registered_address varchar(255) [note: "Địa chỉ trụ sở pháp lý; NULL"]
+  province_id bigint [note: "Tỉnh trụ sở; NULL"]
+  district_id bigint [note: "Quận/huyện (nếu có); NULL"]
+  ward_id bigint [note: "Phường/xã; NULL"]
+  verification_status varchar(20) [default: 'unverified', note: "unverified | pending | verified | rejected; DEFAULT unverified"]
+  verified_at datetime [note: "Ngày xác thực pháp lý; NULL"]
+  rating_avg decimal(3,2) [default: 0, note: "Điểm đánh giá published (cache); DEFAULT 0"]
+  review_count int [default: 0, note: "Tổng đánh giá công khai (cache); DEFAULT 0"]
+  trust_count int [default: 0, note: "Tổng lượt tin tưởng (cache); DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (verification_status, name)
+  }
+}
+
+Table center_branches {
+  Note: 'Một trung tâm có nhiều địa điểm đào tạo; liên kết với ca học.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  center_id bigint [not null, note: "Trung tâm sở hữu; NOT NULL"]
+  name varchar(180) [not null, note: "Tên chi nhánh/cơ sở; NOT NULL"]
+  address_line varchar(255) [not null, note: "Số nhà, đường; NOT NULL"]
+  province_id bigint [note: "Tỉnh/thành; NULL"]
+  district_id bigint [note: "Quận/huyện cũ; NULL"]
+  ward_id bigint [note: "Phường/xã; NULL"]
+  latitude decimal(10,7) [note: "Vĩ độ bản đồ; NULL"]
+  longitude decimal(10,7) [note: "Kinh độ bản đồ; NULL"]
+  is_main boolean [default: false, note: "Là cơ sở chính; DEFAULT false"]
+  status varchar(20) [default: 'active', note: "active | inactive; DEFAULT active"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (center_id, status)
+  }
+}
+
+Table center_staff {
+  Note: 'Thông tin tư vấn viên nội bộ để phân công lead; chưa phải role đăng nhập thứ 5.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  center_id bigint [not null, note: "Đơn vị công tác; NOT NULL"]
+  full_name varchar(150) [not null, note: "Tên nhân viên; NOT NULL"]
+  phone varchar(20) [note: "Liên hệ nội bộ; NULL"]
+  email varchar(191) [note: "Email nội bộ; NULL"]
+  status varchar(20) [default: 'active', note: "active | inactive; DEFAULT active"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (center_id, status)
+  }
+}
+
+Table subjects {
+  Note: 'Danh mục môn phục vụ tìm kiếm, bộ lọc và dashboard.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  name varchar(120) [not null, unique, note: "Tên môn; NOT NULL; UNIQUE"]
+  slug varchar(140) [not null, unique, note: "Slug; NOT NULL; UNIQUE"]
+  icon_path varchar(255) [note: "Ảnh/icon; NULL"]
+  sort_order int [default: 0, note: "Thứ tự hiển thị; DEFAULT 0"]
+  is_active boolean [default: true, note: "Đang hoạt động; DEFAULT true"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (is_active, sort_order)
+  }
+}
+
+Table education_levels {
+  Note: 'Cấp học hoặc lớp cụ thể như Lớp 9, Lớp 12, IELTS, HSK tùy cách phân loại.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  code varchar(40) [not null, unique, note: "Mã cấp học/lớp; NOT NULL; UNIQUE"]
+  name varchar(120) [not null, note: "Tên cấp học/lớp; NOT NULL"]
+  sort_order int [default: 0, note: "Thứ tự; DEFAULT 0"]
+  is_active boolean [default: true, note: "Có hiển thị trong bộ lọc; DEFAULT true"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (is_active, sort_order)
+  }
+}
+
+Table teacher_subjects {
+  Note: 'Quan hệ nhiều - nhiều giữa giáo viên và môn.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  teacher_user_id bigint [not null, note: "Giáo viên; NOT NULL"]
+  subject_id bigint [not null, note: "Môn học; NOT NULL"]
+  level_note varchar(150) [note: "Ghi chú trình độ dạy; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (teacher_user_id, subject_id) [unique]
+  }
+}
+
+Table student_learning_needs {
+  Note: 'Một học viên có thể có nhiều mục tiêu theo môn và lớp.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  student_user_id bigint [not null, note: "Học viên; NOT NULL"]
+  subject_id bigint [note: "Môn quan tâm; NULL"]
+  level_id bigint [note: "Cấp lớp; NULL"]
+  preferred_mode varchar(20) [note: "online | at_home | classroom | hybrid; NULL"]
+  budget_min decimal(12,2) [note: "Mức học phí tối thiểu (VND); NULL"]
+  budget_max decimal(12,2) [note: "Mức học phí tối đa (VND); NULL"]
+  goals text [note: "Mục tiêu học; NULL"]
+  is_active boolean [default: true, note: "Còn quan tâm; DEFAULT true"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (student_user_id, is_active)
+    (subject_id, level_id)
+  }
+}
+
+Table teacher_qualifications {
+  Note: 'Metadata chuyên môn để học viên xem, tách khỏi file CCCD và hồ sơ pháp lý mật.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  teacher_user_id bigint [not null, note: "Giáo viên; NOT NULL"]
+  title varchar(200) [not null, note: "Tên bằng cấp/chứng chỉ; NOT NULL"]
+  issuer varchar(200) [note: "Đơn vị cấp; NULL"]
+  issued_on date [note: "Ngày cấp; NULL"]
+  expires_on date [note: "Ngày hết hạn; NULL"]
+  is_verified boolean [default: false, note: "Đã đối chiếu hồ sơ; DEFAULT false"]
+  is_public boolean [default: true, note: "Hiện trên trang giáo viên; DEFAULT true"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (teacher_user_id, is_public)
+  }
+}
+
+Table verification_requests {
+  Note: 'Mỗi lần giáo viên/trung tâm nộp hồ sơ là một đợt để lưu được lịch sử duyệt.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  teacher_user_id bigint [note: "Giáo viên nộp (nếu loại teacher); NULL"]
+  center_id bigint [note: "Trung tâm nộp (nếu loại center); NULL"]
+  submitted_by_user_id bigint [not null, note: "Người thao tác nộp; NOT NULL"]
+  status varchar(20) [default: 'pending', note: "pending | verified | rejected; DEFAULT pending"]
+  submitted_at datetime [not null, note: "Ngày nộp; NOT NULL"]
+  reviewed_by bigint [note: "Super Admin xét duyệt; NULL"]
+  reviewed_at datetime [note: "Ngày xét duyệt; NULL"]
+  rejection_reason text [note: "Lý do từ chối; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (teacher_user_id, status)
+    (center_id, status)
+    (status, submitted_at)
+  }
+}
+
+Table verification_documents {
+  Note: 'File chứng chỉ, CCCD, giấy phép kinh doanh, giấy phép giáo dục thuộc từng đợt.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  request_id bigint [not null, note: "Đợt xác minh; NOT NULL"]
+  document_type varchar(40) [not null, note: "identity | degree | pedagogy | language_cert | business_license | education_license | other; NOT NULL"]
+  file_path varchar(255) [not null, note: "Đường dẫn file trên private storage; NOT NULL"]
+  original_name varchar(255) [note: "Tên file gốc; NULL"]
+  mime_type varchar(100) [note: "Loại tệp; NULL"]
+  status varchar(20) [default: 'pending', note: "pending | approved | rejected; DEFAULT pending"]
+  admin_note text [note: "Ghi chú duyệt file; NULL"]
+  reviewed_by bigint [note: "Admin duyệt tài liệu; NULL"]
+  reviewed_at datetime [note: "Thời điểm kiểm duyệt; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (request_id, status)
+  }
+}
+
+Table posts {
+  Note: 'Một khóa thuộc chính xác một giáo viên hoặc một trung tâm và chỉ hiện khi đã duyệt.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  teacher_user_id bigint [note: "Chủ bài: giáo viên; NULL"]
+  center_id bigint [note: "Chủ bài: trung tâm; NULL"]
+  subject_id bigint [not null, note: "Môn chính; NOT NULL"]
+  title varchar(220) [not null, note: "Tiêu đề bài đăng; NOT NULL"]
+  slug varchar(240) [not null, unique, note: "URL riêng; NOT NULL; UNIQUE"]
+  short_description varchar(500) [note: "Tóm tắt danh sách; NULL"]
+  description longtext [not null, note: "Nội dung chi tiết/lộ trình; NOT NULL"]
+  target_audience text [note: "Đối tượng học; NULL"]
+  outcomes text [note: "Mục tiêu đầu ra; NULL"]
+  teaching_mode varchar(20) [not null, note: "online | at_home | classroom | hybrid; NOT NULL"]
+  price_amount decimal(12,2) [note: "Học phí tham khảo (VND); NULL"]
+  price_unit varchar(20) [default: 'course', note: "session | month | course; DEFAULT course"]
+  schedule_text varchar(255) [note: "Lịch học dự kiến hiển thị ở MVP; NULL"]
+  province_id bigint [note: "Tỉnh có dạy trực tiếp; NULL"]
+  district_id bigint [note: "Quận/huyện lịch sử; NULL"]
+  ward_id bigint [note: "Phường/xã; NULL"]
+  moderation_status varchar(20) [default: 'draft', note: "draft | pending | published | rejected | hidden; DEFAULT draft"]
+  enrollment_status varchar(20) [default: 'open', note: "open | paused | closed; DEFAULT open"]
+  rejection_reason text [note: "Lý do admin từ chối; NULL"]
+  published_at datetime [note: "Ngày xuất bản; NULL"]
+  view_count int [default: 0, note: "Số lượt xem (cache); DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (subject_id, moderation_status, price_amount)
+    (teacher_user_id, moderation_status)
+    (center_id, moderation_status)
+    (moderation_status, published_at)
+    (province_id, district_id)
+  }
+}
+
+Table post_levels {
+  Note: 'Một bài đăng có thể phục vụ nhiều cấp độ học.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  post_id bigint [not null, note: "Bài đăng; NOT NULL"]
+  level_id bigint [not null, note: "Lớp/cấp học; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (post_id, level_id) [unique]
+  }
+}
+
+Table post_images {
+  Note: 'Gallery có ảnh bìa và thứ tự ảnh.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  post_id bigint [not null, note: "Bài đăng; NOT NULL"]
+  image_path varchar(255) [not null, note: "File ảnh; NOT NULL"]
+  alt_text varchar(180) [note: "Mô tả ảnh; NULL"]
+  is_cover boolean [default: false, note: "Ảnh bìa; DEFAULT false"]
+  sort_order int [default: 0, note: "Thứ tự; DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (post_id, sort_order)
+  }
+}
+
+Table course_batches {
+  Note: 'Một khóa học có nhiều lớp mở đợt; có sức chứa và giáo viên phụ trách.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  post_id bigint [not null, note: "Khóa học; NOT NULL"]
+  center_branch_id bigint [note: "Cơ sở dạy offline (nếu center); NULL"]
+  teacher_user_id bigint [note: "Giáo viên phụ trách nếu phân công; NULL"]
+  name varchar(160) [not null, note: "Tên lớp/đợt; NOT NULL"]
+  capacity smallint [note: "Số chỗ tối đa; NULL"]
+  start_date date [note: "Ngày bắt đầu; NULL"]
+  end_date date [note: "Ngày kết thúc; NULL"]
+  status varchar(20) [default: 'open', note: "open | full | closed | cancelled; DEFAULT open"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (post_id, status)
+    (center_branch_id)
+    (teacher_user_id)
+  }
+}
+
+Table course_schedules {
+  Note: 'Lịch lặp theo thứ trong tuần cho từng lớp/đợt tuyển sinh.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  batch_id bigint [not null, note: "Đợt/lớp học; NOT NULL"]
+  weekday tinyint [not null, note: "Thứ trong tuần: 1=Thứ Hai...7=Chủ nhật; NOT NULL"]
+  start_time time [not null, note: "Giờ bắt đầu; NOT NULL"]
+  end_time time [not null, note: "Giờ kết thúc; NOT NULL"]
+  delivery_mode varchar(20) [not null, note: "online | at_home | classroom; NOT NULL"]
+  note varchar(255) [note: "Ghi chú lớp/phòng học; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (batch_id, weekday)
+  }
+}
+
+Table post_moderation_logs {
+  Note: 'Lưu từng lần admin duyệt, từ chối, hạ bài hoặc tác giả gửi duyệt.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  post_id bigint [not null, note: "Bài đăng; NOT NULL"]
+  action_by_user_id bigint [not null, note: "Người thao tác; NOT NULL"]
+  from_status varchar(20) [note: "Trạng thái trước; NULL"]
+  to_status varchar(20) [not null, note: "Trạng thái sau; NOT NULL"]
+  reason text [note: "Lý do; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (post_id, created_at)
+    (action_by_user_id, created_at)
+  }
+}
+
+Table consultation_requests {
+  Note: 'Lead gắn với bài nguồn và học viên; bên nhận suy ra từ chủ bài.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  student_user_id bigint [not null, note: "Học viên gửi yêu cầu; NOT NULL"]
+  post_id bigint [not null, note: "Khóa học nguồn; NOT NULL"]
+  batch_id bigint [note: "Ca/lớp quan tâm; NULL"]
+  assigned_staff_id bigint [note: "Tư vấn viên trung tâm được phân công; NULL"]
+  contact_name varchar(150) [not null, note: "Tên form liên hệ (snapshot); NOT NULL"]
+  contact_phone varchar(20) [not null, note: "SĐT form liên hệ (snapshot); NOT NULL"]
+  contact_email varchar(191) [note: "Email form liên hệ; NULL"]
+  message text [note: "Nhu cầu học/lời nhắn; NULL"]
+  status varchar(20) [default: 'new', note: "new | contacted | consulting | converted | failed | cancelled; DEFAULT new"]
+  internal_note text [note: "Ghi chú chỉ bên nhận xem; NULL"]
+  contacted_at datetime [note: "Thời điểm liên hệ đầu tiên; NULL"]
+  closed_at datetime [note: "Thời điểm chuyển trạng thái cuối; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (student_user_id, created_at)
+    (post_id, status, created_at)
+    (status, created_at)
+    (assigned_staff_id, status)
+  }
+}
+
+Table request_status_logs {
+  Note: 'Theo dõi chính xác người thực hiện và trạng thái cũ/mới của lead.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  request_id bigint [not null, note: "Lead liên quan; NOT NULL"]
+  changed_by_user_id bigint [not null, note: "Người đổi trạng thái; NOT NULL"]
+  from_status varchar(20) [note: "Trạng thái cũ; NULL"]
+  to_status varchar(20) [not null, note: "Trạng thái mới; NOT NULL"]
+  note text [note: "Ghi chú đổi trạng thái; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (request_id, created_at)
+  }
+}
+
+Table post_favorites {
+  Note: 'Học viên đánh dấu lưu khóa học.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  student_user_id bigint [not null, note: "Học viên; NOT NULL"]
+  post_id bigint [not null, note: "Bài đăng đã lưu; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (student_user_id, post_id) [unique]
+  }
+}
+
+Table profile_interactions {
+  Note: 'Ghi nhận favorite hoặc trust của học viên lên giáo viên hay trung tâm.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  student_user_id bigint [not null, note: "Học viên thao tác; NOT NULL"]
+  teacher_user_id bigint [note: "Giáo viên được chọn; NULL"]
+  center_id bigint [note: "Trung tâm được chọn; NULL"]
+  interaction_type varchar(20) [not null, note: "favorite | trust; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (student_user_id, teacher_user_id, interaction_type) [unique]
+    (student_user_id, center_id, interaction_type) [unique]
+  }
+}
+
+Table reviews {
+  Note: 'Mỗi lead converted tối đa một review, liên kết đích bằng FK cụ thể.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  request_id bigint [not null, unique, note: "Lead làm bằng chứng; NOT NULL; UNIQUE"]
+  student_user_id bigint [not null, note: "Học viên đánh giá; NOT NULL"]
+  post_id bigint [not null, note: "Khóa học được đánh giá; NOT NULL"]
+  teacher_user_id bigint [note: "Giáo viên được đánh giá; NULL"]
+  center_id bigint [note: "Trung tâm được đánh giá; NULL"]
+  rating tinyint [not null, note: "Điểm sao 1..5; NOT NULL"]
+  comment text [note: "Nội dung nhận xét; NULL"]
+  status varchar(20) [default: 'pending', note: "pending | published | hidden; DEFAULT pending"]
+  moderated_by bigint [note: "Admin kiểm duyệt; NULL"]
+  moderated_at datetime [note: "Thời điểm kiểm duyệt; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (teacher_user_id, status)
+    (center_id, status)
+    (status, created_at)
+  }
+}
+
+Table feed_posts {
+  Note: 'Bài chia sẻ/ảnh/video từ giáo viên hoặc trung tâm, tách biệt bài khóa học.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  author_user_id bigint [not null, note: "Tài khoản tạo bài; NOT NULL"]
+  center_id bigint [note: "Trung tâm đứng tên bài (nếu có); NULL"]
+  title varchar(220) [note: "Tiêu đề (tùy chọn); NULL"]
+  content longtext [not null, note: "Nội dung chia sẻ; NOT NULL"]
+  status varchar(20) [default: 'pending', note: "draft | pending | published | rejected | hidden; DEFAULT pending"]
+  rejection_reason text [note: "Lý do từ chối; NULL"]
+  published_at datetime [note: "Ngày xuất bản; NULL"]
+  like_count int [default: 0, note: "Tổng lượt tim (cache); DEFAULT 0"]
+  comment_count int [default: 0, note: "Tổng bình luận (cache); DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (author_user_id, status)
+    (center_id, status)
+    (status, published_at)
+  }
+}
+
+Table feed_media {
+  Note: 'Cho phép đính kèm nhiều ảnh, video hoặc thumbnail.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  feed_post_id bigint [not null, note: "Bài bảng tin; NOT NULL"]
+  media_type varchar(20) [not null, note: "image | video; NOT NULL"]
+  file_path varchar(255) [not null, note: "Đường dẫn file; NOT NULL"]
+  thumbnail_path varchar(255) [note: "Ảnh xem trước video; NULL"]
+  sort_order int [default: 0, note: "Thứ tự hiển thị; DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (feed_post_id, sort_order)
+  }
+}
+
+Table feed_likes {
+  Note: 'Một user chỉ được tim một lần trên mỗi bài.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  feed_post_id bigint [not null, note: "Bài viết; NOT NULL"]
+  user_id bigint [not null, note: "Người thả tim; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (feed_post_id, user_id) [unique]
+  }
+}
+
+Table feed_comments {
+  Note: 'Bình luận cây hai tầng hoặc nhiều tầng tùy UI, có trạng thái ẩn.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  feed_post_id bigint [not null, note: "Bài bảng tin; NOT NULL"]
+  user_id bigint [not null, note: "Người bình luận; NOT NULL"]
+  parent_id bigint [note: "Bình luận cha nếu trả lời; NULL"]
+  content text [not null, note: "Nội dung hỏi/đáp; NOT NULL"]
+  status varchar(20) [default: 'published', note: "published | hidden; DEFAULT published"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (feed_post_id, created_at)
+    (parent_id)
+  }
+}
+
+Table chat_conversations {
+  Note: 'Cuộc trao đổi học viên với giáo viên hoặc trung tâm, có thể liên kết khóa học.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  student_user_id bigint [not null, note: "Học viên khởi tạo; NOT NULL"]
+  teacher_user_id bigint [note: "Giáo viên nhận; NULL"]
+  center_id bigint [note: "Trung tâm nhận; NULL"]
+  post_id bigint [note: "Khóa học đang trao đổi; NULL"]
+  status varchar(20) [default: 'active', note: "active | archived; DEFAULT active"]
+  last_message_at datetime [note: "Tin nhắn gần nhất; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (student_user_id, last_message_at)
+    (teacher_user_id, last_message_at)
+    (center_id, last_message_at)
+  }
+}
+
+Table chat_participants {
+  Note: 'Quản lý phân quyền đọc, trạng thái đã xem và ẩn cuộc trò chuyện.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  conversation_id bigint [not null, note: "Hội thoại; NOT NULL"]
+  user_id bigint [not null, note: "User tham gia; NOT NULL"]
+  last_read_at datetime [note: "Lần đọc đến; NULL"]
+  is_muted boolean [default: false, note: "Tắt thông báo; DEFAULT false"]
+  joined_at datetime [not null, note: "Thời điểm tham gia; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (conversation_id, user_id) [unique]
+    (user_id, last_read_at)
+  }
+}
+
+Table chat_messages {
+  Note: 'Tin nhắn liên kết hội thoại và người gửi; dùng sự kiện realtime khi cần.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  conversation_id bigint [not null, note: "Hội thoại; NOT NULL"]
+  sender_user_id bigint [not null, note: "Người gửi; NOT NULL"]
+  message_type varchar(20) [default: 'text', note: "text | image | file | system; DEFAULT text"]
+  body text [note: "Nội dung văn bản; NULL"]
+  sent_at datetime [not null, note: "Thời điểm gửi; NOT NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  deleted_at datetime [note: "Thời điểm xóa mềm; NULL"]
+  indexes {
+    (conversation_id, sent_at)
+    (sender_user_id, sent_at)
+  }
+}
+
+Table chat_attachments {
+  Note: 'Lưu các ảnh/tệp của tin nhắn, có metadata tải xuống.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  message_id bigint [not null, note: "Tin nhắn sở hữu; NOT NULL"]
+  file_path varchar(255) [not null, note: "Đường dẫn tệp; NOT NULL"]
+  file_name varchar(255) [not null, note: "Tên file khi tải; NOT NULL"]
+  mime_type varchar(100) [note: "MIME; NULL"]
+  file_size bigint [note: "Kích thước byte; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (message_id)
+  }
+}
+
+Table notifications {
+  Note: 'Thông báo lead mới, duyệt bài, xác minh, review và tin nhắn.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [not null, note: "Người nhận; NOT NULL"]
+  type varchar(80) [not null, note: "Loại sự kiện; NOT NULL"]
+  title varchar(180) [not null, note: "Tiêu đề; NOT NULL"]
+  content text [note: "Nội dung; NULL"]
+  data json [note: "Dữ liệu điều hướng (post_id, lead_id...); NULL"]
+  read_at datetime [note: "NULL nếu chưa đọc; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (user_id, read_at, created_at)
+  }
+}
+
+Table reports {
+  Note: 'Hỗ trợ tố cáo post, teacher, center, review, feed post/comment và user.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  reporter_user_id bigint [not null, note: "Người báo cáo; NOT NULL"]
+  target_type varchar(30) [not null, note: "post | teacher | center | review | feed_post | feed_comment | user; NOT NULL"]
+  target_id bigint [not null, note: "ID đối tượng theo target_type; NOT NULL"]
+  reason varchar(100) [not null, note: "Nhóm lý do; NOT NULL"]
+  description text [note: "Mô tả chi tiết; NULL"]
+  status varchar(20) [default: 'open', note: "open | reviewing | resolved | rejected; DEFAULT open"]
+  handled_by bigint [note: "Admin xử lý; NULL"]
+  admin_note text [note: "Kết luận/xử lý; NULL"]
+  resolved_at datetime [note: "Ngày đóng; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (status, created_at)
+    (target_type, target_id)
+    (reporter_user_id, created_at)
+  }
+}
+
+Table banners {
+  Note: 'Nội dung banner và nút chuyển hướng.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  title varchar(180) [note: "Tên banner; NULL"]
+  image_path varchar(255) [not null, note: "Ảnh banner; NOT NULL"]
+  link_url varchar(500) [note: "Link CTA; NULL"]
+  sort_order int [default: 0, note: "Thứ tự ưu tiên; DEFAULT 0"]
+  status varchar(20) [default: 'active', note: "active | inactive; DEFAULT active"]
+  starts_at datetime [note: "Bắt đầu hiển thị; NULL"]
+  ends_at datetime [note: "Kết thúc hiển thị; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (status, sort_order)
+  }
+}
+
+Table homepage_features {
+  Note: 'Admin có thể ghim đúng một loại đối tượng vào khu vực nổi bật.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  teacher_user_id bigint [note: "Giáo viên nổi bật; NULL"]
+  center_id bigint [note: "Trung tâm nổi bật; NULL"]
+  post_id bigint [note: "Khóa học nổi bật; NULL"]
+  sort_order int [default: 0, note: "Thứ tự hiện; DEFAULT 0"]
+  is_active boolean [default: true, note: "Đang hiển thị; DEFAULT true"]
+  starts_at datetime [note: "Bắt đầu; NULL"]
+  ends_at datetime [note: "Kết thúc; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (is_active, sort_order)
+  }
+}
+
+Table admin_logs {
+  Note: 'Không sửa lịch sử: ghi hành vi duyệt bài, từ chối hồ sơ, khóa user, xử lý report.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  admin_user_id bigint [not null, note: "Super Admin thực hiện; NOT NULL"]
+  action varchar(100) [not null, note: "Tên hành động nghiệp vụ; NOT NULL"]
+  target_type varchar(50) [note: "Tên loại đối tượng; NULL"]
+  target_id bigint [note: "ID đối tượng; NULL"]
+  old_values json [note: "Trạng thái trước (lọc bí mật); NULL"]
+  new_values json [note: "Trạng thái sau (lọc bí mật); NULL"]
+  ip_address varchar(45) [note: "IP thao tác; NULL"]
+  created_at datetime [not null, note: "Thời điểm thao tác; NOT NULL"]
+  indexes {
+    (admin_user_id, created_at)
+    (target_type, target_id)
+  }
+}
+
+Table user_activity_logs {
+  Note: 'Ghi login, đăng bài, nộp xác minh... để audit hành vi người dùng.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [not null, note: "Người thực hiện; NOT NULL"]
+  action varchar(100) [not null, note: "Hành vi; NOT NULL"]
+  subject_type varchar(50) [note: "Tên loại dữ liệu liên quan; NULL"]
+  subject_id bigint [note: "ID dữ liệu liên quan; NULL"]
+  metadata json [note: "Metadata không chứa bí mật; NULL"]
+  ip_address varchar(45) [note: "IP (áp dụng retention); NULL"]
+  created_at datetime [not null, note: "Thời điểm hoạt động; NOT NULL"]
+  indexes {
+    (user_id, created_at)
+    (action, created_at)
+  }
+}
+
+Table auth_verification_tokens {
+  Note: 'Lưu hash của mã OTP/link; không lưu OTP dạng rõ.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [note: "User liên quan nếu đã có; NULL"]
+  destination varchar(191) [not null, note: "Email/SĐT nhận mã; NOT NULL"]
+  channel varchar(20) [not null, note: "email | sms; NOT NULL"]
+  purpose varchar(30) [not null, note: "signup | reset_password | verify_email | verify_phone; NOT NULL"]
+  token_hash varchar(255) [not null, note: "Hash token/OTP; NOT NULL"]
+  expires_at datetime [not null, note: "Thời gian hết hạn; NOT NULL"]
+  used_at datetime [note: "Đã sử dụng khi nào; NULL"]
+  attempt_count tinyint [default: 0, note: "Số lần thử; DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+    (destination, purpose, expires_at)
+  }
+}
+
+Table search_logs {
+  Note: 'Phục vụ biểu đồ top môn, bộ lọc quan tâm; hạn chế định danh không cần thiết.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  user_id bigint [note: "Người tìm (có thể là khách); NULL"]
+  keyword varchar(255) [note: "Từ khóa; NULL"]
+  subject_id bigint [note: "Môn tìm kiếm; NULL"]
+  level_id bigint [note: "Cấp lớp; NULL"]
+  teaching_mode varchar(20) [note: "Hình thức dạy; NULL"]
+  province_id bigint [note: "Tỉnh đang lọc; NULL"]
+  result_count int [default: 0, note: "Số kết quả trả về; DEFAULT 0"]
+  created_at datetime [not null, note: "Thời điểm tìm kiếm; NOT NULL"]
+  indexes {
+    (subject_id, created_at)
+    (created_at)
+  }
+}
+
+Table system_settings {
+  Note: 'Tùy chọn như giới hạn ảnh, hotline liên hệ, chính sách kiểm duyệt.'
+  id bigint [pk, increment, note: "Khóa chính; PK, AUTO_INCREMENT"]
+  setting_key varchar(120) [not null, unique, note: "Mã cấu hình; NOT NULL; UNIQUE"]
+  setting_value json [not null, note: "Giá trị cấu hình; NOT NULL"]
+  description varchar(255) [note: "Giải thích cấu hình; NULL"]
+  updated_by bigint [note: "Admin cập nhật; NULL"]
+  created_at datetime [not null, note: "Thời điểm tạo; NOT NULL"]
+  updated_at datetime [not null, note: "Thời điểm cập nhật; NOT NULL"]
+  indexes {
+  }
+}
+
+// FOREIGN KEY RELATIONSHIPS
+Ref: administrative_areas.parent_id > administrative_areas.id
+Ref: student_profiles.user_id > users.id
+Ref: student_profiles.province_id > administrative_areas.id
+Ref: student_profiles.district_id > administrative_areas.id
+Ref: student_profiles.ward_id > administrative_areas.id
+Ref: teacher_profiles.user_id > users.id
+Ref: teacher_profiles.province_id > administrative_areas.id
+Ref: teacher_profiles.district_id > administrative_areas.id
+Ref: teacher_profiles.ward_id > administrative_areas.id
+Ref: centers.owner_user_id > users.id
+Ref: centers.province_id > administrative_areas.id
+Ref: centers.district_id > administrative_areas.id
+Ref: centers.ward_id > administrative_areas.id
+Ref: center_branches.center_id > centers.id
+Ref: center_branches.province_id > administrative_areas.id
+Ref: center_branches.district_id > administrative_areas.id
+Ref: center_branches.ward_id > administrative_areas.id
+Ref: center_staff.center_id > centers.id
+Ref: teacher_subjects.teacher_user_id > users.id
+Ref: teacher_subjects.subject_id > subjects.id
+Ref: student_learning_needs.student_user_id > users.id
+Ref: student_learning_needs.subject_id > subjects.id
+Ref: student_learning_needs.level_id > education_levels.id
+Ref: teacher_qualifications.teacher_user_id > users.id
+Ref: verification_requests.teacher_user_id > users.id
+Ref: verification_requests.center_id > centers.id
+Ref: verification_requests.submitted_by_user_id > users.id
+Ref: verification_requests.reviewed_by > users.id
+Ref: verification_documents.request_id > verification_requests.id
+Ref: verification_documents.reviewed_by > users.id
+Ref: posts.teacher_user_id > users.id
+Ref: posts.center_id > centers.id
+Ref: posts.subject_id > subjects.id
+Ref: posts.province_id > administrative_areas.id
+Ref: posts.district_id > administrative_areas.id
+Ref: posts.ward_id > administrative_areas.id
+Ref: post_levels.post_id > posts.id
+Ref: post_levels.level_id > education_levels.id
+Ref: post_images.post_id > posts.id
+Ref: course_batches.post_id > posts.id
+Ref: course_batches.center_branch_id > center_branches.id
+Ref: course_batches.teacher_user_id > users.id
+Ref: course_schedules.batch_id > course_batches.id
+Ref: post_moderation_logs.post_id > posts.id
+Ref: post_moderation_logs.action_by_user_id > users.id
+Ref: consultation_requests.student_user_id > users.id
+Ref: consultation_requests.post_id > posts.id
+Ref: consultation_requests.batch_id > course_batches.id
+Ref: consultation_requests.assigned_staff_id > center_staff.id
+Ref: request_status_logs.request_id > consultation_requests.id
+Ref: request_status_logs.changed_by_user_id > users.id
+Ref: post_favorites.student_user_id > users.id
+Ref: post_favorites.post_id > posts.id
+Ref: profile_interactions.student_user_id > users.id
+Ref: profile_interactions.teacher_user_id > users.id
+Ref: profile_interactions.center_id > centers.id
+Ref: reviews.request_id > consultation_requests.id
+Ref: reviews.student_user_id > users.id
+Ref: reviews.post_id > posts.id
+Ref: reviews.teacher_user_id > users.id
+Ref: reviews.center_id > centers.id
+Ref: reviews.moderated_by > users.id
+Ref: feed_posts.author_user_id > users.id
+Ref: feed_posts.center_id > centers.id
+Ref: feed_media.feed_post_id > feed_posts.id
+Ref: feed_likes.feed_post_id > feed_posts.id
+Ref: feed_likes.user_id > users.id
+Ref: feed_comments.feed_post_id > feed_posts.id
+Ref: feed_comments.user_id > users.id
+Ref: feed_comments.parent_id > feed_comments.id
+Ref: chat_conversations.student_user_id > users.id
+Ref: chat_conversations.teacher_user_id > users.id
+Ref: chat_conversations.center_id > centers.id
+Ref: chat_conversations.post_id > posts.id
+Ref: chat_participants.conversation_id > chat_conversations.id
+Ref: chat_participants.user_id > users.id
+Ref: chat_messages.conversation_id > chat_conversations.id
+Ref: chat_messages.sender_user_id > users.id
+Ref: chat_attachments.message_id > chat_messages.id
+Ref: notifications.user_id > users.id
+Ref: reports.reporter_user_id > users.id
+Ref: reports.handled_by > users.id
+Ref: homepage_features.teacher_user_id > users.id
+Ref: homepage_features.center_id > centers.id
+Ref: homepage_features.post_id > posts.id
+Ref: admin_logs.admin_user_id > users.id
+Ref: user_activity_logs.user_id > users.id
+Ref: auth_verification_tokens.user_id > users.id
+Ref: search_logs.user_id > users.id
+Ref: search_logs.subject_id > subjects.id
+Ref: search_logs.level_id > education_levels.id
+Ref: search_logs.province_id > administrative_areas.id
+Ref: system_settings.updated_by > users.id
+
+// CROSS-TABLE RULES enforced in Laravel services / migrations:
+// users: Có ít nhất một trong email/phone; mọi role phải được cấp qua nghiệp vụ hợp lệ.
+// student_learning_needs: budget_min <= budget_max nếu cùng được khai báo
+// verification_requests: Chính xác một trong teacher_user_id và center_id khác NULL.
+// posts: Chính xác một trong teacher_user_id và center_id khác NULL.
+// posts: Chỉ moderation_status=published và enrollment_status=open mới được nhận lead mới (quy tắc đề xuất).
+// course_batches: Cơ sở được chọn phải thuộc đúng trung tâm sở hữu post.
+// course_schedules: weekday từ 1..7; start_time < end_time
+// consultation_requests: Chỉ student sở hữu lead được hủy khi status=new (chưa liên hệ).
+// consultation_requests: Không cho phép chuyển ngược từ converted, failed, cancelled nếu không có nghiệp vụ admin.
+// profile_interactions: Chính xác một trong teacher_user_id và center_id khác NULL.
+// reviews: rating từ 1..5; request phải converted; review.student_user_id=lead.student_user_id.
+// reviews: Chính xác một trong teacher_user_id và center_id khác NULL và trùng chủ post.
+// chat_conversations: Chính xác một trong teacher_user_id và center_id khác NULL.
+// chat_conversations: Đảm bảo người tham gia và post thuộc đúng bên nhận.
+// chat_messages: Sender phải thuộc chat_participants của hội thoại.
+// reports: target_type + target_id là quan hệ đa hình: kiểm tra tồn tại và quyền qua service, không phải FK vật lý.
+// homepage_features: Chính xác một trong teacher_user_id, center_id và post_id khác NULL.
+// auth_verification_tokens: Giới hạn thời hạn, số lần thử và rate-limit gửi mã.

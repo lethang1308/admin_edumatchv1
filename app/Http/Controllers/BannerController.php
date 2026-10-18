@@ -156,7 +156,7 @@ class BannerController extends Controller
     public function toggleStatus($id)
     {
         $banner = Banner::findOrFail($id);
-        $banner->status = !$banner->status; // Đảo ngược trạng thái
+        $banner->status = $banner->status === 'active' ? 'inactive' : 'active';
         $banner->save();
 
         return redirect()->back()->with('success', 'Cập nhật trạng thái thành công!');

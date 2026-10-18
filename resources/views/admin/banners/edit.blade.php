@@ -65,8 +65,8 @@
             <div class="form-group">
                 <label for="status">Trạng thái</label>
                 <select id="status" name="status" class="form-control">
-                    <option value="1" {{ old('status', $banner->status) == 1 ? 'selected' : '' }}>Kích hoạt</option>
-                    <option value="0" {{ old('status', $banner->status) == 0 ? 'selected' : '' }}>Tắt</option>
+                    <option value="1" {{ old('status', $banner->status === 'active' ? 1 : 0) == 1 ? 'selected' : '' }}>Kích hoạt</option>
+                    <option value="0" {{ old('status', $banner->status === 'active' ? 1 : 0) == 0 ? 'selected' : '' }}>Tắt</option>
                 </select>
             </div>
 
