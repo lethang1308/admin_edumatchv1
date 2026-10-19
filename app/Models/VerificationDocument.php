@@ -15,6 +15,9 @@ class VerificationDocument extends Model
     protected $fillable = [
         'request_id',
         'document_type',
+        'document_name',
+        'issuing_authority',
+        'issued_year',
         'file_path',
         'original_name',
         'mime_type',
@@ -28,9 +31,12 @@ class VerificationDocument extends Model
         'status' => 'pending',
     ];
 
+    protected $hidden = ['file_path'];
+
     protected $casts = [
         'id' => 'integer',
         'request_id' => 'integer',
+        'issued_year' => 'integer',
         'reviewed_by' => 'integer',
         'reviewed_at' => 'datetime',
         'created_at' => 'datetime',

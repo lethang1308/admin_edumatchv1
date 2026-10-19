@@ -27,7 +27,23 @@ Route::prefix('auth')->group($authRoutes);
 Route::group([], $authRoutes);
 
 Route::get('/administrative-areas', [AdministrativeAreaController::class, 'index']);
+Route::controller(\App\Http\Controllers\Api\MasterDataController::class)->group(function () {
+    Route::get('/subjects', 'subjects');
+    Route::get('/education-levels', 'levels');
+    Route::get('/banners', 'banners');
+    Route::get('/administrative-areas/provinces', 'provinces');
+    Route::get('/administrative-areas/districts/{province}', 'districts');
+    Route::get('/administrative-areas/wards/{parent}', 'wards');
+    Route::get('/provider-verifications', 'verificationStatuses');
+    Route::get('/providers/{user}', 'provider');
+});
 Route::middleware(['auth:sanctum', EnsureActiveAccount::class])->group(function () {
+    Route::get('/verifications', [\App\Http\Controllers\Api\VerificationController::class, 'index']);
+    Route::post('/verifications', [\App\Http\Controllers\Api\VerificationController::class, 'store'])->middleware('throttle:10,1');
+    Route::get('/verifications/documents/{document}', [\App\Http\Controllers\Api\VerificationController::class, 'document']);
+    Route::get('/notifications', [\App\Http\Controllers\Api\AccountNotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\AccountNotificationController::class, 'readAll']);
+    Route::post('/notifications/{notification}/read', [\App\Http\Controllers\Api\AccountNotificationController::class, 'read']);
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/student/profile', [ProfileController::class, 'update']);

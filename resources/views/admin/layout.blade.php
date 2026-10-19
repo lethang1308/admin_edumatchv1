@@ -6,11 +6,11 @@
 @endphp
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>@yield('title', 'Quản lý cửa hàng')</title>
+    <title>@yield('title', 'Quản trị EduMatch')</title>
     <meta content="width=device-width, initial-scale=1.0, shrink-to-fit=no" name="viewport" />
     <link rel="icon"
         href="{{ $AppSetting?->logo_path ? asset('storage/' . $AppSetting->logo_path) : asset('storage/logo-default.png') }}"
@@ -122,6 +122,15 @@
                             </a>
                         </li>
 
+                        @if(auth()->user()?->hasAnyRole(['super_admin', 'admin']))
+                        <li class="nav-section"><h4 class="text-section">Đào tạo &amp; Danh mục</h4></li>
+                        <li class="nav-item {{ request()->routeIs('admin.subjects.*') ? 'active' : '' }}"><a href="{{ route('admin.subjects.index') }}"><i class="fas fa-book"></i><p>Quản lý Môn học</p></a></li>
+                        <li class="nav-item {{ request()->routeIs('admin.education-levels.*') ? 'active' : '' }}"><a href="{{ route('admin.education-levels.index') }}"><i class="fas fa-graduation-cap"></i><p>Quản lý Cấp lớp</p></a></li>
+                        <li class="nav-item {{ request()->routeIs('admin.administrative-areas.*') ? 'active' : '' }}"><a href="{{ route('admin.administrative-areas.index') }}"><i class="fas fa-map-marked-alt"></i><p>Tra cứu khu vực</p></a></li>
+                        @php($pendingVerificationCount = \App\Models\VerificationRequest::where('status', 'pending')->count())
+                        <li class="nav-section"><h4 class="text-section">Kiểm duyệt &amp; Uy tín</h4></li>
+                        <li class="nav-item {{ request()->routeIs('admin.verifications.*') ? 'active' : '' }}"><a data-bs-toggle="collapse" href="#verificationsCollapse" aria-expanded="{{ request()->routeIs('admin.verifications.*') ? 'true' : 'false' }}"><i class="fas fa-user-check"></i><p>Trung tâm xác minh</p>@if($pendingVerificationCount)<span class="badge bg-warning text-dark ms-auto">{{ $pendingVerificationCount }}</span>@else<span class="caret"></span>@endif</a><div id="verificationsCollapse" class="collapse {{ request()->routeIs('admin.verifications.*') ? 'show' : '' }}"><ul class="nav nav-collapse">@foreach(['index' => 'Tất cả yêu cầu', 'teachers' => 'Xác minh Giáo viên', 'centers' => 'Xác minh Trung tâm'] as $action => $label)<li class="{{ request()->routeIs('admin.verifications.'.$action) ? 'active' : '' }}"><a href="{{ route('admin.verifications.'.$action) }}"><span class="sub-item">{{ $label }}</span></a></li>@endforeach</ul></div></li>
+                        @endif
                         <li class="nav-section">
                             <span class="sidebar-mini-icon">
                                 <i class="fa fa-ellipsis-h"></i>
@@ -392,7 +401,7 @@
                                     </div>
                                     <span class="profile-username">
                                         <span class="op-7">Hi,</span>
-                                        <span class="fw-bold">{{ Auth::user()->full_name }}</span>
+                                        <span class="fw-bold">{{ Auth::user()->name ?? Auth::user()->full_name }}</span>
                                     </span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-user animated fadeIn">
@@ -404,7 +413,7 @@
                                                         alt="image profile" class="avatar-img rounded" />
                                                 </div>
                                                 <div class="u-text">
-                                                    <h4>{{ Auth::user()->full_name }}</h4>
+                                                    <h4>{{ Auth::user()->name ?? Auth::user()->full_name }}</h4>
                                                     <p class="text-muted">{{ Auth::user()->email }}</p>
                                                     <a href="{{ route('admin.profile.index') }}"
                                                         class="btn btn-xs btn-secondary btn-sm">View
@@ -463,7 +472,7 @@
                 </div>
             </div>
 
-            <footer class="footer">
+            {{-- <footer class="footer">
                 <div class="container-fluid d-flex justify-content-between text-center">
                     <div class="copyright w-100 text-center">
                         2025, Được thực hiện bởi
@@ -471,7 +480,7 @@
                             class="fa fa-heart heart text-danger"></i>
                     </div>
                 </div>
-            </footer>
+            </footer> --}}
         </div>
 
         <div class="custom-template">

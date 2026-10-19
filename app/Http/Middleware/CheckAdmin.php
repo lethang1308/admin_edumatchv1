@@ -15,10 +15,8 @@ class CheckAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check() && !auth()->user()->can('access_admin')) {
-            // Nếu không phải admin, chuyển hướng về trang khác (ví dụ: trang chủ)
-            return redirect()->route('home');
-        }
+        abort_unless($request->user() && $request->user()->status === 'active'
+            && ($request->user()->hasAnyRole(['super_admin', 'admin']) || $request->user()->can('access_admin')), 403);
 
         return $next($request);
     }

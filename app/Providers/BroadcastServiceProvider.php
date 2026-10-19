@@ -12,7 +12,9 @@ class BroadcastServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Broadcast::routes();
+        // The React client authenticates private channels with its Sanctum bearer
+        // token through the API guard. Do not use the web/session middleware here.
+        Broadcast::routes(['middleware' => ['api', 'auth:api']]);
 
         require base_path('routes/channels.php');
     }

@@ -1,89 +1,9 @@
 @extends('admin.layout')
-
+@section('title', 'Quản lý Banner - EduMatch')
 @section('content')
-    <h1 class="mb-4">Danh sách tài khoản</h1>
-
-    <!-- Thêm sản phẩm -->
-    <a href="{{ route('admin.banners.create') }}" class="btn btn-primary mb-3">Thêm banner</a>
-
-    <!-- Bảng sản phẩm -->
-    <table id="banners-table" class="table table-bordered table-striped">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Hình ảnh</th>
-                <th>Tiêu đề</th>
-                <th>Link</th>
-                <th>Vị trí</th>
-                <th>Ngày bắt đầu</th>
-                <th>Ngày kết thúc</th>
-                <th>Trạng thái</th>
-                <th>Hành động</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($banners as $banner)
-                <tr>
-                    <td>{{ $banner->id }}</td>
-                    <td>
-                        @if ($banner->image)
-                            <img src="{{ asset('storage/' . $banner->image) }}" width="80" alt="Banner">
-                        @else
-                            <span class="text-muted">Không có ảnh</span>
-                        @endif
-                    </td>
-                    <td>{{ $banner->title }}</td>
-                    <td><a href="{{ $banner->link }}" target="_blank">{{ $banner->link }}</a></td>
-                    <td>{{ $banner->position }}</td>
-                    <td>{{ $banner->start_date ? \Carbon\Carbon::parse($banner->start_date)->format('d/m/Y H:i') : '-' }}
-                    </td>
-                    <td>{{ $banner->end_date ? \Carbon\Carbon::parse($banner->end_date)->format('d/m/Y H:i') : '-' }}</td>
-                    <td>
-                        <form action="{{ route('admin.banners.toggleStatus', $banner->id) }}" method="POST"
-                            style="display: inline;">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="badge fs-5 {{ $banner->status === 'active' ? 'bg-success' : 'bg-secondary' }}">
-                                {{ $banner->status === 'active' ? 'Kích hoạt' : 'Tắt' }}
-                            </button>
-                        </form>
-
-                    </td>
-                    <td>
-                        <a href="{{ route('admin.banners.edit', $banner->id) }}" class="btn btn-warning btn-sm">Sửa</a>
-                        <form id="delete-form-{{ $banner->id }}" action="{{ route('admin.banners.destroy', $banner->id) }}"
-                            method="POST" style="display:inline-block">
-                            @csrf
-                            @method('DELETE')
-                            <button type="button" class="btn btn-danger btn-sm"
-                                onclick="confirmDelete('delete-form-{{ $banner->id }}', 'Bạn có chắc muốn xóa banner này không?')">Xóa</button>
-                        </form>
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+<div class="d-flex justify-content-between align-items-center mb-4"><h1>Quản lý Banner</h1><a class="btn btn-primary" href="{{ route('admin.banners.create') }}">Thêm banner</a></div>
+<div class="card table-responsive"><table class="table table-striped align-middle"><thead><tr><th>ID</th><th>Ảnh</th><th>Tiêu đề / Liên kết</th><th>Thứ tự</th><th>Vị trí</th><th>Thời gian hiển thị</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+@forelse($banners as $banner)<tr><td>{{ $banner->id }}</td><td><img src="{{ asset('storage/'.$banner->image_path) }}" width="120" alt="{{ $banner->title }}"></td><td>{{ $banner->title }}@if($banner->link_url)<br><a href="{{ $banner->link_url }}" target="_blank" rel="noopener noreferrer">{{ $banner->link_url }}</a>@endif</td><td>{{ $banner->sort_order }}</td><td>{{ in_array($banner->position, ['home', '1', null]) ? 'Trang chủ' : $banner->position }}</td><td>{{ $banner->starts_at?->format('d/m/Y H:i') ?? 'Ngay khi bật' }}<br>{{ $banner->ends_at?->format('d/m/Y H:i') ?? 'Không giới hạn' }}</td><td><form method="POST" action="{{ route('admin.banners.toggleStatus', $banner) }}">@csrf @method('PATCH')<button class="btn btn-sm {{ $banner->status === 'active' ? 'btn-success' : 'btn-secondary' }}">{{ $banner->status === 'active' ? 'Đang bật' : 'Đã tắt' }}</button></form></td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.banners.edit', $banner) }}">Sửa</a><form class="d-inline" method="POST" action="{{ route('admin.banners.destroy', $banner) }}" onsubmit="return confirm('Xóa banner này?')">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger">Xóa</button></form></td></tr>
+@empty<tr><td colspan="8">Chưa có banner.</td></tr>@endforelse
+</tbody></table></div>{{ $banners->links('pagination::bootstrap-5') }}
 @endsection
-
-@push('scripts')
-    <script>
-        $(document).ready(function () {
-            $('#banners-table').DataTable({
-                "language": {
-                    "search": "Tìm kiếm:",
-                    "lengthMenu": "Hiển thị _MENU_ mục",
-                    "info": "Hiển thị _START_ đến _END_ trong _TOTAL_ mục",
-                    "paginate": {
-                        "first": "Đầu",
-                        "last": "Cuối",
-                        "next": "Tiếp",
-                        "previous": "Trước"
-                    },
-                    "zeroRecords": "Không tìm thấy dữ liệu",
-                    "infoEmpty": "Không có dữ liệu",
-                    "infoFiltered": "(lọc từ _MAX_ mục)"
-                }
-            });
-        });
-    </script>
-@endpush

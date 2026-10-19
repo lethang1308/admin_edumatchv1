@@ -1,23 +1,14 @@
 <?php
-use App\Exports\OrdersExport;
-use App\Http\Controllers\AccountController;
+
 use App\Http\Controllers\AppSettingController;
 use App\Http\Controllers\ArticleController;
-use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BannerController;
-use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\CommissionController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\ProductCategoryController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\UploadController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
-use Maatwebsite\Excel\Facades\Excel;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -43,8 +34,24 @@ Route::middleware(['auth', 'admin'])->group(function () {
             Route::resource('permissions', \App\Http\Controllers\PermissionController::class);
         });
 
-        Route::resource('banners', BannerController::class);
-        Route::patch('/banners/{id}/toggle-status', [BannerController::class, 'toggleStatus'])->name('banners.toggleStatus');
+        Route::middleware(\App\Http\Middleware\EnsurePhase2Admin::class)->group(function () {
+            Route::resource('subjects', \App\Http\Controllers\SubjectController::class)->except('show');
+            Route::patch('subjects/{subject}/toggle-status', [\App\Http\Controllers\SubjectController::class, 'toggleStatus'])->name('subjects.toggleStatus');
+            Route::resource('education-levels', \App\Http\Controllers\EducationLevelController::class)->except('show');
+            Route::patch('education-levels/{education_level}/toggle-status', [\App\Http\Controllers\EducationLevelController::class, 'toggleStatus'])->name('education-levels.toggleStatus');
+            Route::get('administrative-areas', [\App\Http\Controllers\AdministrativeAreaController::class, 'index'])->name('administrative-areas.index');
+            Route::resource('banners', BannerController::class)->except('show');
+            Route::patch('banners/{banner}/toggle-status', [BannerController::class, 'toggleStatus'])->name('banners.toggleStatus');
+            Route::prefix('verifications')->name('verifications.')->controller(\App\Http\Controllers\VerificationController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/teachers', 'teachers')->name('teachers');
+                Route::get('/centers', 'centers')->name('centers');
+                Route::get('/documents/{document}', 'document')->name('document');
+                Route::get('/{verification}', 'show')->name('show');
+                Route::post('/{verification}/approve', 'approve')->name('approve');
+                Route::post('/{verification}/reject', 'reject')->name('reject');
+            });
+        });
         Route::resource('categories', CategoryController::class);
         Route::post('categories/ajax-store', [CategoryController::class, 'ajaxStore'])->name('categories.ajaxStore');
         Route::resource('articles', ArticleController::class);
@@ -64,5 +71,3 @@ Route::get('/signup', [LoginController::class, 'showSignupForm'])->name('signup.
 Route::post('/signup', [LoginController::class, 'signup'])->name('signup');
 
 Route::post('/login', [LoginController::class, 'login'])->name('login');
-
-

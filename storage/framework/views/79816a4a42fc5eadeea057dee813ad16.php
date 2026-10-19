@@ -6,11 +6,11 @@
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title><?php echo $__env->yieldContent('title', 'Quản lý cửa hàng'); ?></title>
+    <title><?php echo $__env->yieldContent('title', 'Quản trị EduMatch'); ?></title>
     <meta content="width=device-width, initial-scale=1.0, shrink-to-fit=no" name="viewport" />
     <link rel="icon"
         href="<?php echo e($AppSetting?->logo_path ? asset('storage/' . $AppSetting->logo_path) : asset('storage/logo-default.png')); ?>"
@@ -122,6 +122,15 @@
                             </a>
                         </li>
 
+                        <?php if(auth()->user()?->hasAnyRole(['super_admin', 'admin'])): ?>
+                        <li class="nav-section"><h4 class="text-section">Đào tạo &amp; Danh mục</h4></li>
+                        <li class="nav-item <?php echo e(request()->routeIs('admin.subjects.*') ? 'active' : ''); ?>"><a href="<?php echo e(route('admin.subjects.index')); ?>"><i class="fas fa-book"></i><p>Quản lý Môn học</p></a></li>
+                        <li class="nav-item <?php echo e(request()->routeIs('admin.education-levels.*') ? 'active' : ''); ?>"><a href="<?php echo e(route('admin.education-levels.index')); ?>"><i class="fas fa-graduation-cap"></i><p>Quản lý Cấp lớp</p></a></li>
+                        <li class="nav-item <?php echo e(request()->routeIs('admin.administrative-areas.*') ? 'active' : ''); ?>"><a href="<?php echo e(route('admin.administrative-areas.index')); ?>"><i class="fas fa-map-marked-alt"></i><p>Tra cứu khu vực</p></a></li>
+                        <?php ($pendingVerificationCount = \App\Models\VerificationRequest::where('status', 'pending')->count()); ?>
+                        <li class="nav-section"><h4 class="text-section">Kiểm duyệt &amp; Uy tín</h4></li>
+                        <li class="nav-item <?php echo e(request()->routeIs('admin.verifications.*') ? 'active' : ''); ?>"><a data-bs-toggle="collapse" href="#verificationsCollapse" aria-expanded="<?php echo e(request()->routeIs('admin.verifications.*') ? 'true' : 'false'); ?>"><i class="fas fa-user-check"></i><p>Trung tâm xác minh</p><?php if($pendingVerificationCount): ?><span class="badge bg-warning text-dark ms-auto"><?php echo e($pendingVerificationCount); ?></span><?php else: ?><span class="caret"></span><?php endif; ?></a><div id="verificationsCollapse" class="collapse <?php echo e(request()->routeIs('admin.verifications.*') ? 'show' : ''); ?>"><ul class="nav nav-collapse"><?php $__currentLoopData = ['index' => 'Tất cả yêu cầu', 'teachers' => 'Xác minh Giáo viên', 'centers' => 'Xác minh Trung tâm']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $action => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li class="<?php echo e(request()->routeIs('admin.verifications.'.$action) ? 'active' : ''); ?>"><a href="<?php echo e(route('admin.verifications.'.$action)); ?>"><span class="sub-item"><?php echo e($label); ?></span></a></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul></div></li>
+                        <?php endif; ?>
                         <li class="nav-section">
                             <span class="sidebar-mini-icon">
                                 <i class="fa fa-ellipsis-h"></i>
@@ -394,7 +403,7 @@
                                     </div>
                                     <span class="profile-username">
                                         <span class="op-7">Hi,</span>
-                                        <span class="fw-bold"><?php echo e(Auth::user()->full_name); ?></span>
+                                        <span class="fw-bold"><?php echo e(Auth::user()->name ?? Auth::user()->full_name); ?></span>
                                     </span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-user animated fadeIn">
@@ -406,7 +415,7 @@
                                                         alt="image profile" class="avatar-img rounded" />
                                                 </div>
                                                 <div class="u-text">
-                                                    <h4><?php echo e(Auth::user()->full_name); ?></h4>
+                                                    <h4><?php echo e(Auth::user()->name ?? Auth::user()->full_name); ?></h4>
                                                     <p class="text-muted"><?php echo e(Auth::user()->email); ?></p>
                                                     <a href="<?php echo e(route('admin.profile.index')); ?>"
                                                         class="btn btn-xs btn-secondary btn-sm">View
@@ -466,15 +475,7 @@
                 </div>
             </div>
 
-            <footer class="footer">
-                <div class="container-fluid d-flex justify-content-between text-center">
-                    <div class="copyright w-100 text-center">
-                        2025, Được thực hiện bởi
-                        <a href="https://www.facebook.com/profile.php?id=100053830937586">Trần Huy Hưng</a> <i
-                            class="fa fa-heart heart text-danger"></i>
-                    </div>
-                </div>
-            </footer>
+            
         </div>
 
         <div class="custom-template">
@@ -684,4 +685,5 @@
     <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 
-</html><?php /**PATH C:\laragon\www\admin_edumatchv1\resources\views/admin/layout.blade.php ENDPATH**/ ?>
+</html>
+<?php /**PATH C:\laragon\www\admin_edumatchv1\resources\views/admin/layout.blade.php ENDPATH**/ ?>

@@ -30,6 +30,13 @@ return [
 
     'disks' => [
 
+        'verification' => [
+            'driver' => 'local',
+            'root' => storage_path('app/verification_documents'),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app'),
