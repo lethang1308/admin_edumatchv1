@@ -256,7 +256,7 @@
                         </li>
                         @endrole
 
-                        @role('admin')
+                        @hasanyrole('super_admin|admin')
                         <li class="nav-section">
                             <span class="sidebar-mini-icon">
                                 <i class="fa fa-ellipsis-h"></i>
@@ -284,7 +284,7 @@
                                 </ul>
                             </div>
                         </li>
-                        @endrole
+                        @endhasanyrole
 
                         <li class="nav-item">
                             <a href="/logout">

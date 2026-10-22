@@ -27,7 +27,6 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('admin')->name('admin.')->group(function () {
         // Admin only
         Route::middleware(['role:admin'])->group(function () {
-            Route::resource('users', UserController::class);
             Route::get('app-setting', [AppSettingController::class, 'index'])->name('app-setting.index');
             Route::put('app-setting', [AppSettingController::class, 'update'])->name('app-setting.store');
             Route::resource('roles', \App\Http\Controllers\RoleController::class);
@@ -35,6 +34,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         });
 
         Route::middleware(\App\Http\Middleware\EnsurePhase2Admin::class)->group(function () {
+            Route::resource('users', UserController::class);
             Route::resource('subjects', \App\Http\Controllers\SubjectController::class)->except('show');
             Route::patch('subjects/{subject}/toggle-status', [\App\Http\Controllers\SubjectController::class, 'toggleStatus'])->name('subjects.toggleStatus');
             Route::resource('education-levels', \App\Http\Controllers\EducationLevelController::class)->except('show');
