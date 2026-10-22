@@ -46,7 +46,9 @@ class SaveAdminUserRequest extends FormRequest
             'blocked_reason' => ['nullable', 'required_if:status,blocked', 'string', 'max:2000'],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'date_of_birth' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'bio' => ['nullable', 'string', 'max:'.($this->input('role') === 'student' ? '1000' : '5000')],
+            'bio' => $this->input('role') === 'student'
+                ? ['nullable', 'string', 'max:1000']
+                : ['nullable', 'string'],
             'headline' => ['nullable', 'string', 'max:200'],
             'experience_years' => ['nullable', 'integer', 'min:0', 'max:80'],
             'founded_year' => ['nullable', 'integer', 'min:1950', 'max:'.now()->year],

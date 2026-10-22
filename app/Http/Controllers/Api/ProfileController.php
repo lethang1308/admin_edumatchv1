@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\UpdateStudentProfileRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,16 +21,36 @@ class ProfileController extends Controller
         return response()->json(['user' => $request->user()->load(self::RELATIONS)]);
     }
 
-    public function update(UpdateStudentProfileRequest $request)
+    public function update(UpdateProfileRequest $request)
     {
         $data = $request->validated();
         $user = $request->user();
         DB::transaction(function () use ($user, $data) {
             if (array_key_exists('name', $data)) {
-                $user->update(['name' => $data['name']]);
+                // User names remain compact, while a center's public name can
+                // use the full 200-character allowance on its own profile.
+                $user->update(['name' => mb_substr($data['name'], 0, 150)]);
             }
-            unset($data['name']);
-            $user->studentProfile()->updateOrCreate(['user_id' => $user->id], $data + ['full_name' => $user->name]);
+            $profileData = $data;
+            unset($profileData['name']);
+
+            if ($user->role === 'teacher') {
+                $user->teacherProfile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    $profileData + ['full_name' => $user->name],
+                );
+            } elseif ($user->role === 'center') {
+                $centerData = \Illuminate\Support\Arr::only($profileData, ['bio', 'teaching_field', 'founded_year']);
+                if (array_key_exists('name', $data)) {
+                    $centerData['name'] = $data['name'];
+                }
+                $user->center()->updateOrCreate(
+                    ['owner_user_id' => $user->id],
+                    $centerData + ['name' => $user->name],
+                );
+            } else {
+                $user->studentProfile()->updateOrCreate(['user_id' => $user->id], $profileData + ['full_name' => $user->name]);
+            }
         });
 
         return response()->json(['message' => 'Đã cập nhật hồ sơ cá nhân.', 'user' => $user->fresh()->load(self::RELATIONS)]);

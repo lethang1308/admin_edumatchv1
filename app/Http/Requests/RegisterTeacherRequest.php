@@ -16,6 +16,7 @@ class RegisterTeacherRequest extends RegisterStudentRequest
         $this->merge([
             'headline' => $this->input('headline') ?? $this->input('qualification') ?? $this->input('qualifications'),
             'bio' => $this->input('bio') ?? $this->input('biography'),
+            'teaching_field' => $this->input('teaching_field') ?? $this->input('teachingField'),
             'experience_years' => $experience,
             'show_phone' => $this->input('show_phone', $this->input('isPhonePublic', false)),
         ]);
@@ -26,7 +27,10 @@ class RegisterTeacherRequest extends RegisterStudentRequest
         return array_replace(parent::rules(), [
             'role' => ['required', Rule::in(['teacher'])],
             'headline' => ['nullable', 'string', 'max:200'],
-            'bio' => ['nullable', 'string', 'max:5000'],
+            // Teacher capability profiles are long-form content and intentionally
+            // have no character limit.
+            'bio' => ['nullable', 'string'],
+            'teaching_field' => ['nullable', 'string', 'max:40'],
             'experience_years' => ['nullable', 'integer', 'min:0', 'max:60'],
             'show_phone' => ['required', 'boolean'],
         ]);
@@ -36,6 +40,7 @@ class RegisterTeacherRequest extends RegisterStudentRequest
     {
         return array_replace(parent::messages(), [
             'headline.max' => 'Bằng cấp/tiêu đề nghề nghiệp tối đa 200 ký tự.',
+            'teaching_field.max' => 'Lĩnh vực giảng dạy tối đa 40 ký tự.',
             'experience_years.integer' => 'Vui lòng nhập số năm kinh nghiệm hợp lệ.',
             'experience_years.max' => 'Số năm kinh nghiệm tối đa 60 năm.',
             'role.in' => 'Vai trò đăng ký không hợp lệ.',

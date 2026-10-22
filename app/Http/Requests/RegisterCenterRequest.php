@@ -13,6 +13,7 @@ class RegisterCenterRequest extends RegisterStudentRequest
             'name' => $this->input('centerName') ?? $this->input('name'),
             'founded_year' => $this->input('founded_year') ?? $this->input('foundedYear'),
             'bio' => $this->input('bio') ?? $this->input('centerDescription'),
+            'teaching_field' => $this->input('teaching_field') ?? $this->input('teachingField'),
         ]);
     }
 
@@ -22,7 +23,10 @@ class RegisterCenterRequest extends RegisterStudentRequest
             'role' => ['required', Rule::in(['center'])],
             'name' => ['required', 'string', 'min:2', 'max:200'],
             'founded_year' => ['required', 'integer', 'min:1950', 'max:'.now()->year],
-            'bio' => ['nullable', 'string', 'max:5000'],
+            // Center capability profiles are long-form content and intentionally
+            // have no character limit.
+            'bio' => ['nullable', 'string'],
+            'teaching_field' => ['nullable', 'string', 'max:40'],
         ]);
         unset($rules['date_of_birth']);
 
@@ -36,6 +40,7 @@ class RegisterCenterRequest extends RegisterStudentRequest
             'founded_year.required' => 'Vui lòng nhập năm thành lập.',
             'founded_year.min' => 'Năm thành lập phải từ 1950 trở đi.',
             'founded_year.max' => 'Năm thành lập không được nằm trong tương lai.',
+            'teaching_field.max' => 'Lĩnh vực giảng dạy tối đa 40 ký tự.',
             'role.in' => 'Vai trò đăng ký không hợp lệ.',
         ]);
     }

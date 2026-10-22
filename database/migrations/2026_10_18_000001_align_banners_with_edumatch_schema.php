@@ -13,13 +13,15 @@ return new class extends Migration
             throw new RuntimeException('Cannot upgrade banners: shorten legacy titles to 180 characters first.');
         }
 
-        Schema::table('banners', function (Blueprint $table) {
-            $table->renameColumn('image', 'image_path');
-            $table->renameColumn('link', 'link_url');
-            $table->renameColumn('order', 'sort_order');
-            $table->renameColumn('start_date', 'starts_at');
-            $table->renameColumn('end_date', 'ends_at');
-        });
+        // Older MariaDB versions (including the XAMPP distribution) do not
+        // support Laravel's generated `RENAME COLUMN` syntax. `CHANGE COLUMN`
+        // is supported there, but requires the current column definition.
+        DB::statement('ALTER TABLE `banners`
+            CHANGE COLUMN `image` `image_path` VARCHAR(255) NOT NULL,
+            CHANGE COLUMN `link` `link_url` VARCHAR(255) NULL,
+            CHANGE COLUMN `order` `sort_order` INT UNSIGNED NOT NULL DEFAULT 1,
+            CHANGE COLUMN `start_date` `starts_at` TIMESTAMP NULL,
+            CHANGE COLUMN `end_date` `ends_at` TIMESTAMP NULL');
         Schema::table('banners', function (Blueprint $table) {
             $table->string('title', 180)->nullable()->change();
             $table->string('link_url', 500)->nullable()->change();
@@ -66,12 +68,12 @@ return new class extends Migration
             $table->timestamp('created_at')->nullable()->change();
             $table->timestamp('updated_at')->nullable()->change();
         });
-        Schema::table('banners', function (Blueprint $table) {
-            $table->renameColumn('image_path', 'image');
-            $table->renameColumn('link_url', 'link');
-            $table->renameColumn('sort_order', 'order');
-            $table->renameColumn('starts_at', 'start_date');
-            $table->renameColumn('ends_at', 'end_date');
-        });
+        // See the compatibility note in up(): MariaDB uses CHANGE COLUMN.
+        DB::statement('ALTER TABLE `banners`
+            CHANGE COLUMN `image_path` `image` VARCHAR(255) NOT NULL,
+            CHANGE COLUMN `link_url` `link` VARCHAR(255) NULL,
+            CHANGE COLUMN `sort_order` `order` INT UNSIGNED NOT NULL DEFAULT 1,
+            CHANGE COLUMN `starts_at` `start_date` TIMESTAMP NULL,
+            CHANGE COLUMN `ends_at` `end_date` TIMESTAMP NULL');
     }
 };

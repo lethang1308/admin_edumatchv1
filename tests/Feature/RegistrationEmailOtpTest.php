@@ -127,6 +127,39 @@ class RegistrationEmailOtpTest extends IsolatedMysqlTestCase
         $this->assertDatabaseCount('users', 1);
     }
 
+    public function test_teacher_and_center_capability_profiles_accept_long_form_content(): void
+    {
+        $bio = str_repeat('Hồ sơ năng lực chi tiết của đơn vị đào tạo. ', 160);
+
+        $center = $this->payload([
+            'role' => 'center',
+            'name' => 'Trung tâm dài',
+            'email' => 'center.long.profile@gmail.com',
+            'phone' => '0981234568',
+            'founded_year' => 2019,
+            'teaching_field' => 'Tiếng Anh và luyện thi',
+            'centerDescription' => $bio,
+        ]);
+        $this->seedRegistrationOtp($center['email']);
+        $this->postJson('/api/auth/register', $center)->assertCreated()
+            ->assertJsonPath('user.center.bio', rtrim($bio))
+            ->assertJsonPath('user.center.teaching_field', 'Tiếng Anh và luyện thi');
+
+        $teacher = $this->payload([
+            'role' => 'teacher',
+            'name' => 'Giáo viên dài',
+            'email' => 'teacher.long.profile@gmail.com',
+            'phone' => '0981234569',
+            'teachingField' => 'Tiếng Anh giao tiếp',
+            'biography' => $bio,
+            'show_phone' => false,
+        ]);
+        $this->seedRegistrationOtp($teacher['email']);
+        $this->postJson('/api/auth/register', $teacher)->assertCreated()
+            ->assertJsonPath('user.teacher_profile.bio', rtrim($bio))
+            ->assertJsonPath('user.teacher_profile.teaching_field', 'Tiếng Anh giao tiếp');
+    }
+
     public function test_codes_are_bound_to_the_email_and_consumed_codes_cannot_be_reused(): void
     {
         $record = $this->seedRegistrationOtp('other@gmail.com');
