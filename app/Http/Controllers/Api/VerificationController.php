@@ -27,7 +27,7 @@ class VerificationController extends Controller
 
     public function store(SubmitVerificationRequest $request, VerificationService $service)
     {
-        $record = $service->submit($request->user(), $request->validated()['documents']);
+        $record = $service->submit($request->user(), $request->validated()['documents'], $request->validated('center_details'));
 
         return response()->json(['message' => 'Đã gửi hồ sơ xác minh. Vui lòng chờ quản trị viên xét duyệt.', 'request' => $this->serialize($record),
             'user' => $request->user()->fresh()->load(['studentProfile', 'teacherProfile', 'center'])], 201);

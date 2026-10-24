@@ -66,7 +66,7 @@ class AuthController extends Controller
                 if ($role === 'teacher') {
                     $user->teacherProfile()->create([
                         'full_name' => $user->name, 'date_of_birth' => $data['date_of_birth'],
-                        'headline' => $data['headline'] ?? null, 'bio' => $data['bio'] ?? null,
+                        'headline' => $data['headline'] ?? null, 'teaching_field' => $data['teaching_field'] ?? null, 'bio' => $data['bio'] ?? null,
                         'experience_years' => $data['experience_years'] ?? 0,
                         'show_phone' => $data['show_phone'], 'verification_status' => 'unverified',
                     ]);
@@ -75,7 +75,7 @@ class AuthController extends Controller
                         'name' => $data['name'],
                         // User ID makes slugs unique even for concurrent registrations and deleted centers.
                         'slug' => mb_substr(Str::slug($data['name']) ?: 'trung-tam', 0, 200).'-'.$user->id,
-                        'founded_year' => $data['founded_year'], 'bio' => $data['bio'] ?? null,
+                        'founded_year' => $data['founded_year'], 'teaching_field' => $data['teaching_field'] ?? null, 'bio' => $data['bio'] ?? null,
                         'hotline' => $data['phone'], 'contact_email' => $data['email'] ?? null,
                         'verification_status' => 'unverified',
                     ]);
