@@ -256,7 +256,7 @@
                         </li>
                         <?php endif; ?>
 
-                        <?php if (\Illuminate\Support\Facades\Blade::check('role', 'admin')): ?>
+                        <?php if (\Illuminate\Support\Facades\Blade::check('hasanyrole', 'super_admin|admin')): ?>
                         <li class="nav-section">
                             <span class="sidebar-mini-icon">
                                 <i class="fa fa-ellipsis-h"></i>
