@@ -160,10 +160,26 @@ class Phase1CompletionTest extends IsolatedMysqlTestCase
             ->assertUnprocessable()->assertJsonValidationErrors(['province_id', 'bio', 'date_of_birth']);
         $this->app['auth']->forgetGuards();
         $this->post('/api/profile/avatar', ['avatar' => UploadedFile::fake()->create('bad.svg', 10, 'image/svg+xml')], ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])->assertUnprocessable();
-        $student->update(['role' => 'teacher']);
+        $student->update(['role' => 'admin']);
         $this->api('PUT', '/api/profile', ['name' => 'No edit'], $token)->assertForbidden();
         $student->update(['status' => 'blocked']);
         $this->api('GET', '/api/profile', [], $token)->assertForbidden();
+    }
+
+    public function test_teacher_and_center_can_update_their_own_capability_profiles(): void
+    {
+        $longBio = str_repeat('Nội dung hồ sơ năng lực dài. ', 220);
+        $teacher = User::create(['name' => 'Giáo viên cũ', 'email' => 'teacher.profile@example.test', 'phone' => '+84981234568', 'password' => 'Password@123', 'role' => 'teacher']);
+        $teacher->teacherProfile()->create(['full_name' => $teacher->name, 'date_of_birth' => '1990-05-15']);
+        $teacherToken = $teacher->createToken('teacher-profile')->plainTextToken;
+        $this->api('PUT', '/api/profile', ['name' => 'Giáo viên mới', 'bio' => $longBio, 'date_of_birth' => '1991-05-15', 'teaching_field' => 'Tiếng Anh giao tiếp'], $teacherToken)
+            ->assertOk()->assertJsonPath('user.name', 'Giáo viên mới')->assertJsonPath('user.teacher_profile.bio', rtrim($longBio))->assertJsonPath('user.teacher_profile.teaching_field', 'Tiếng Anh giao tiếp');
+
+        $center = User::create(['name' => 'Trung tâm cũ', 'email' => 'center.profile@example.test', 'phone' => '+84981234569', 'password' => 'Password@123', 'role' => 'center']);
+        $center->center()->create(['name' => 'Trung tâm cũ', 'slug' => 'trung-tam-cu-'.$center->id, 'founded_year' => 2019]);
+        $centerToken = $center->createToken('center-profile')->plainTextToken;
+        $this->api('PUT', '/api/profile', ['name' => 'Trung tâm mới', 'bio' => $longBio, 'teaching_field' => 'Ngoại ngữ và luyện thi'], $centerToken)
+            ->assertOk()->assertJsonPath('user.center.name', 'Trung tâm mới')->assertJsonPath('user.center.bio', rtrim($longBio))->assertJsonPath('user.center.teaching_field', 'Ngoại ngữ và luyện thi');
     }
 
     public function test_change_password_with_correct_and_incorrect_current_password(): void

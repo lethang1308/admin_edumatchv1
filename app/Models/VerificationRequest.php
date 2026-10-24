@@ -22,6 +22,7 @@ class VerificationRequest extends Model
         'reviewed_by',
         'reviewed_at',
         'rejection_reason',
+        'center_verification_details',
     ];
 
     protected $attributes = [
@@ -36,6 +37,7 @@ class VerificationRequest extends Model
         'submitted_at' => 'datetime',
         'reviewed_by' => 'integer',
         'reviewed_at' => 'datetime',
+        'center_verification_details' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

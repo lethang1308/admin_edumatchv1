@@ -10,11 +10,11 @@ use Illuminate\Validation\ValidationException;
 
 class VerificationService
 {
-    public function submit(User $user, array $documents): VerificationRequest
+    public function submit(User $user, array $documents, ?array $centerDetails = null): VerificationRequest
     {
         $paths = [];
         try {
-            return DB::transaction(function () use ($user, $documents, &$paths) {
+            return DB::transaction(function () use ($user, $documents, $centerDetails, &$paths) {
                 $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
                 abort_unless(in_array($user->role, ['teacher', 'center'], true) && $user->status === 'active', 403);
                 $profile = $user->role === 'teacher' ? $user->teacherProfile()->first() : $user->center()->first();
@@ -27,6 +27,7 @@ class VerificationService
                     'teacher_user_id' => $user->role === 'teacher' ? $user->id : null,
                     'center_id' => $user->role === 'center' ? $profile->id : null,
                     'submitted_by_user_id' => $user->id, 'status' => 'pending', 'submitted_at' => now(),
+                    'center_verification_details' => $user->role === 'center' ? $centerDetails : null,
                 ]);
                 foreach ($documents as $document) {
                     $file = $document['file'];

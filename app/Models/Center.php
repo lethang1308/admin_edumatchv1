@@ -21,6 +21,7 @@ class Center extends Model
         'logo_path',
         'cover_path',
         'bio',
+        'teaching_field',
         'founded_year',
         'hotline',
         'contact_email',
